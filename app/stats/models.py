@@ -360,8 +360,7 @@ class Job(Base):
 class ModelConfigRow(Base):
     """Persistent model configuration — editable via admin panel.
 
-    Seeded from models_config.yaml on first startup, then maintained via DB.
-    Changes sync back to models_config.yaml on each write.
+    Stored exclusively in the database (model_configs table).
     """
 
     __tablename__ = "model_configs"
@@ -409,6 +408,11 @@ class RequestLog(Base):
     task_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     model_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    client_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    api_key_prefix: Mapped[str | None] = mapped_column(
+        String(12), nullable=True,
+        comment="First 12 characters of the API key used for this request"
+    )
 
     # The decrypted unified request (TaskRequest)
     original_json: Mapped[str] = mapped_column(Text, nullable=False)

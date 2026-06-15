@@ -20,12 +20,16 @@
     <div style="margin-bottom:16px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
         <!-- Header -->
         <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--surface2);font-size:0.82rem;">
+            <span style="font-size:0.7rem;color:var(--text-muted);">Client:</span>
+            {% if t.client_id %}<code style="font-size:0.75rem;color:var(--primary);">{{ t.client_id }}</code>{% else %}<span style="color:var(--text-muted);font-size:0.75rem;">—</span>{% endif %}
+            <span style="color:var(--border);">|</span>
             <strong>{{ t.request_id }}</strong>
             <span class="badge {% if t.status=='success' %}badge-success{% else %}badge-error{% endif %}">{{ t.status }}</span>
             <code style="font-size:0.78rem;">{{ t.task_type or '—' }}</code>
             <span style="color:var(--primary);">→</span>
             <span>{{ t.model_name or '—' }}</span>
             <span style="color:var(--text-muted);font-size:0.75rem;">({{ t.provider or '—' }})</span>
+            {% if t.api_key_prefix %}<code style="font-size:0.7rem;color:var(--text-muted);" title="API key prefix">{{ t.api_key_prefix }}…</code>{% endif %}
             <span style="margin-left:auto;font-size:0.72rem;color:var(--text-muted);">{{ t.created_at[:19] if t.created_at else '—' }}</span>
         </div>
 

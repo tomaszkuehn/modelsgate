@@ -5,10 +5,10 @@
 <h1>Model Configuration</h1>
 
 {% if request.query_params.get("created") %}
-<div class="alert alert-success">Model created. Registry reloaded, YAML synced.</div>
+<div class="alert alert-success">Model created. Registry reloaded.</div>
 {% endif %}
 {% if request.query_params.get("updated") %}
-<div class="alert alert-success">Model updated. Registry reloaded, YAML synced.</div>
+<div class="alert alert-success">Model updated. Registry reloaded.</div>
 {% endif %}
 {% if request.query_params.get("deleted") %}
 <div class="alert alert-success">Model deleted.</div>
@@ -50,7 +50,7 @@
 <div class="card">
     <div class="card-header">
         <h2>Registered Models ({{ models | length }})</h2>
-        <span style="color:var(--text-muted);font-size:0.78rem;">Config: {{ config_path }} | DB-backed, YAML synced</span>
+        <span style="color:var(--text-muted);font-size:0.78rem;">Config: {{ config_path }}</span>
     </div>
 
     {% if models %}
@@ -130,7 +130,7 @@
     </div>
     {% endfor %}
     {% else %}
-    <div class="empty-state">No models configured. Add one above or seed from models_config.yaml.</div>
+    <div class="empty-state">No models configured. Add one above.</div>
     {% endif %}
 </div>
 {% endblock %}

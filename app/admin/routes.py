@@ -144,7 +144,7 @@ async def models_page(
             "models": models,
             "usage_map": usage_map,
             "db_rows": db_rows,
-            "config_path": settings.models_config_path,
+            "config_path": "Database (model_configs table)",
         },
     )
 
@@ -196,10 +196,9 @@ async def create_model(
         session.add(row)
         await session.commit()
 
-    # Reload registry and sync to YAML
+    # Reload registry from database
     from app.models.registry import ModelRegistry
     await ModelRegistry().reload_from_db()
-    ModelRegistry().sync_to_yaml()
 
     registry = ModelRegistry()
     request.app.state.router.update_configs(registry.get_all_configs())
@@ -265,7 +264,6 @@ async def update_model(
 
     from app.models.registry import ModelRegistry
     ModelRegistry().reload_from_db()
-    ModelRegistry().sync_to_yaml()
     registry = ModelRegistry()
     request.app.state.router.update_configs(registry.get_all_configs())
 
@@ -303,7 +301,7 @@ async def delete_model(
                     "models": {},
                     "usage_map": {},
                     "db_rows": {},
-                    "config_path": settings.models_config_path,
+                    "config_path": "Database (model_configs table)",
                 },
             )
 
@@ -317,7 +315,6 @@ async def delete_model(
 
     from app.models.registry import ModelRegistry
     ModelRegistry().reload_from_db()
-    ModelRegistry().sync_to_yaml()
     registry = ModelRegistry()
     request.app.state.router.update_configs(registry.get_all_configs())
 

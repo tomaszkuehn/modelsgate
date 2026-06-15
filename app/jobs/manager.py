@@ -84,7 +84,7 @@ async def create_job(
         )
         session.add(job)
         await session.commit()
-    logger.info(f"Job created: {job_id} ({task_type})")
+    logger.info(f"Job created: {job_id} ({task_type}) client={client_id or 'anonymous'}")
     return job_id
 
 
@@ -286,13 +286,13 @@ async def process_job_background(
                         tokens_used=unified_response.usage.total_tokens if unified_response.usage else 0,
                     )
         except Exception as e:
-            logger.error(f"Job usage recording failed: {e}")
+            logger.error(f"Job usage recording failed: client={task_req.client_id or 'anonymous'} job={job_id} — {e}")
 
         # ── Complete ────────────────────────────────────────────────
         await _complete_job(job_id, unified_response.model_dump())
 
     except Exception as e:
-        logger.error(f"Job {job_id} failed: {e}")
+        logger.error(f"Job {job_id} failed: client={decrypted_request.get('client_id', 'anonymous')} — {e}")
         await _fail_job(job_id, str(e))
     finally:
         clear_cancelled(job_id)
@@ -324,7 +324,7 @@ async def _complete_job(job_id: str, result: dict):
             j.progress_percent = 100
             j.completed_at = datetime.now(timezone.utc)
             await session.commit()
-            logger.info(f"Job completed: {job_id}")
+            logger.info(f"Job completed: {job_id} client={j.client_id or 'anonymous'}")
 
 
 async def _fail_job(job_id: str, error: str):
@@ -337,4 +337,4 @@ async def _fail_job(job_id: str, error: str):
             j.error_message = error
             j.completed_at = datetime.now(timezone.utc)
             await session.commit()
-            logger.error(f"Job failed: {job_id} — {error}")
+            logger.error(f"Job failed: {job_id} client={j.client_id or 'anonymous'} — {error}")

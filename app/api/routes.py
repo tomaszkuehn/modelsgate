@@ -28,6 +28,31 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["api"])
 
 
+def _resolve_api_key_prefix(model_name: str, registry) -> Optional[str]:
+    """Return first 12 chars of the effective API key for a model, or None."""
+    from app.config import settings
+
+    config = registry.get_config(model_name)
+    if config is None:
+        return None
+
+    # Per-model override takes priority
+    if config.api_key:
+        return config.api_key[:12]
+
+    # Fall back to provider env var
+    provider_key_map = {
+        "openai": settings.openai_api_key,
+        "anthropic": settings.anthropic_api_key,
+        "gemini": settings.gemini_api_key,
+        "openrouter": settings.openrouter_api_key,
+        "alibaba": settings.alibaba_api_key,
+        "deepseek": settings.deepseek_api_key,
+    }
+    env_key = provider_key_map.get(config.provider.lower(), "")
+    return env_key[:12] if env_key else None
+
+
 # ── Public key ──────────────────────────────────────────────────────────
 
 @router.get("/public-key", response_model=PublicKeyResponse)
@@ -62,7 +87,7 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
             encrypted_body.model_dump(), key_manager
         )
     except Exception as e:
-        logger.error(f"Decryption failed: {e}")
+        logger.error(f"Decryption failed: {e}")  # client_id unknown at this stage
         raise HTTPException(status_code=400, detail=f"Decryption failed: {str(e)}")
 
     # ── 2. Parse ────────────────────────────────────────────────────
@@ -278,7 +303,8 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
         try:
             legacy = UnifiedRequest(**decrypted)
             logger.info(
-                f"Legacy request: model={legacy.model} — "
+                f"Legacy request: client={decrypted.get('client_id', 'anonymous')} "
+                f"model={legacy.model} — "
                 f"normalizing to chat_with_context"
             )
             normalized = NormalizedTaskRequest(
@@ -288,7 +314,7 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
                 parameters=legacy.parameters,
             )
         except Exception:
-            logger.warning(f"Request parsing failed: {parse_error}")
+            logger.warning(f"Request parsing failed: client={decrypted.get('client_id', 'anonymous')} — {parse_error}")
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -325,7 +351,7 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
                 task_req, None, normalized
             )
         except WorkflowValidationError as e:
-            logger.warning(f"image_compare validation failed: {e}")
+            logger.warning(f"image_compare validation failed: client={task_req.client_id} — {e}")
             err_response = UnifiedResponse(
                 task_type=normalized.task_type,
                 model=normalized.model,
@@ -346,7 +372,7 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
                 task_req, None, normalized
             )
         except WorkflowEditValidationError as e:
-            logger.warning(f"image_edit validation failed: {e}")
+            logger.warning(f"image_edit validation failed: client={task_req.client_id} — {e}")
             err_response = UnifiedResponse(
                 task_type=normalized.task_type,
                 model=normalized.model,
@@ -364,7 +390,7 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
     try:
         unified_response = await registry.generate(normalized)
     except ValueError as e:
-        logger.warning(f"Provider routing error: {e}")
+        logger.warning(f"Provider routing error: client={task_req.client_id} — {e}")
         unified_response = UnifiedResponse(
             task_type=normalized.task_type,
             model=normalized.model,
@@ -372,7 +398,7 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
             error=str(e),
         )
     except Exception as e:
-        logger.error(f"Provider error: {e}")
+        logger.error(f"Provider error: client={task_req.client_id} model={normalized.model} — {e}")
         unified_response = UnifiedResponse(
             task_type=normalized.task_type,
             model=normalized.model,
@@ -394,7 +420,8 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
         if compare_result:
             unified_response.compare_result = compare_result
             logger.info(
-                f"image_compare: extracted structured result "
+                f"image_compare: client={task_req.client_id or 'anonymous'} "
+                f"extracted structured result "
                 f"({len(compare_result.similarities)} similarities, "
                 f"{len(compare_result.differences)} differences)"
             )
@@ -415,7 +442,8 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
         )
         unified_response.edit_result = edit_result
         logger.info(
-            f"image_edit: {edit_result.edited_images} edited image(s) "
+            f"image_edit: client={task_req.client_id or 'anonymous'} "
+            f"{edit_result.edited_images} edited image(s) "
             f"from {edit_result.source_images_used} source(s)"
         )
 
@@ -487,7 +515,7 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
                 routing_decision=routing_json,
             )
     except Exception as e:
-        logger.error(f"Failed to record usage: {e}")
+        logger.error(f"Failed to record usage: client={task_req.client_id or 'anonymous'} — {e}")
 
     # ── 5b. Record policy usage ──────────────────────────────────────
     if task_req.client_id:
@@ -502,7 +530,7 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
                     ),
                 )
         except Exception as e:
-            logger.error(f"Failed to record policy usage: {e}")
+            logger.error(f"Failed to record policy usage: client={task_req.client_id} — {e}")
 
     # ── 5c. Trace request log ────────────────────────────────────────
     try:
@@ -517,15 +545,17 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
                     logger.info(
                         f"Trace converted: client={task_req.client_id} "
                         f"model={normalized.model} "
-                        f"converted_keys={list(converted[0].keys()) if converted else 'empty'}"
+                        f"keys={list(converted[0].keys()) if converted else 'empty'}"
                     )
                 else:
                     logger.warning(
-                        f"Trace: provider for {normalized.model} has no _convert_messages"
+                        f"Trace: client={task_req.client_id} "
+                        f"provider for {normalized.model} has no _convert_messages"
                     )
             except Exception as ex:
                 logger.warning(
-                    f"Trace: failed to capture converted format for "
+                    f"Trace: client={task_req.client_id} "
+                    f"failed to capture converted format for "
                     f"{normalized.model}: {ex}"
                 )
         await trace_request(
@@ -537,16 +567,18 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
             model_name=normalized.model,
             provider=registry.get_provider_name(normalized.model),
             status="error" if unified_response.error else "success",
+            client_id=task_req.client_id,
+            api_key_prefix=_resolve_api_key_prefix(normalized.model, registry),
         )
     except Exception as e:
-        logger.error(f"Failed to trace request: {e}")
+        logger.error(f"Failed to trace request: client={task_req.client_id or 'anonymous'} — {e}")
 
     # ── 6. Encrypt response ─────────────────────────────────────────
     try:
         encrypted = encrypt_response(unified_response.model_dump(), session_key)
         return EncryptedResponse(**encrypted)
     except Exception as e:
-        logger.error(f"Encryption failed: {e}")
+        logger.error(f"Encryption failed: client={task_req.client_id or 'anonymous'} — {e}")
         raise HTTPException(status_code=500, detail=f"Encryption failed: {str(e)}")
 
 
@@ -610,6 +642,7 @@ async def register_client(request: Request):
             model_name="none",
             provider="none",
             status="success",
+            api_key_prefix=None,
         )
     except Exception:
         pass

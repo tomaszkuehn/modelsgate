@@ -322,6 +322,9 @@ class MatchType(str, Enum):
 
 class RouteDecision(BaseModel):
     """Output of the routing service — which model was chosen and why."""
+
+    model_config = {"protected_namespaces": ()}
+
     model: str = Field(description="Selected model alias")
     provider: str = Field(description="Provider name (openai, anthropic, gemini, ollama)")
     model_id: str = Field(description="Provider-specific model identifier")
