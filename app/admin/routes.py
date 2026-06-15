@@ -869,7 +869,7 @@ async def logs_page(
 async def group_routing_page(
     request: Request,
     admin: str = Depends(get_current_admin),
-    group_id: int = 0,
+    group_id: int = 1,
 ):
     """Per-group task→model assignment matrix."""
     from app.database import async_session

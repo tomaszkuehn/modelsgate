@@ -15,11 +15,10 @@
 
 <!-- Group selector -->
 <div class="card" style="margin-bottom:16px;">
-    <form method="get" action="/admin/group-routing" style="display:flex;gap:12px;align-items:flex-end;">
+    <form id="group-select-form" method="get" action="/admin/group-routing" style="display:flex;gap:12px;align-items:flex-end;">
         <div class="form-group" style="margin-bottom:0;">
             <label>Select Group</label>
-            <select name="group_id" onchange="this.form.submit()" style="padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:0.9rem;min-width:220px;">
-                <option value="0">— choose a group —</option>
+            <select id="group-select" name="group_id" style="padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:0.9rem;min-width:220px;">
                 {% for g in groups %}
                 <option value="{{ g.id }}" {% if selected_group_id == g.id %}selected{% endif %}>{{ g.group_key }} ({{ g.name }})</option>
                 {% endfor %}
@@ -34,7 +33,7 @@
     <div class="card-header">
         <h2>{{ selected_group.group_key }} — Task Assignments</h2>
     </div>
-    <form method="post" action="/admin/group-routing/save">
+    <form id="assignments-form" method="post" action="/admin/group-routing/save">
         <input type="hidden" name="group_id" value="{{ selected_group.id }}">
         <table style="font-size:0.82rem;">
             <thead>
@@ -49,7 +48,7 @@
                         <br><code style="font-size:0.72rem;color:var(--text-muted);">{{ task }}</code>
                     </td>
                     <td>
-                        <select name="model_{{ task }}" style="padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:0.82rem;min-width:240px;">
+                        <select name="model_{{ task }}" class="model-assign-select" data-original="{{ current or '' }}" style="padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:0.82rem;min-width:240px;">
                             <option value="">— default (no override) —</option>
                             {% for m in models %}
                             <option value="{{ m.name }}" {% if current == m.name %}selected{% endif %}>{{ m.name }} ({{ m.provider }})</option>
@@ -64,13 +63,85 @@
             </tbody>
         </table>
         <div style="margin-top:12px;">
-            <button type="submit" class="btn btn-primary">Save Assignments</button>
+            <button id="save-btn" type="submit" class="btn btn-primary">Save Assignments</button>
         </div>
     </form>
 </div>
-{% else %}
-<div class="card">
-    <div class="empty-state">Select a group above to configure task→model assignments.</div>
-</div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<style>
+@keyframes blink-red {
+    0%, 100% { background-color: var(--danger); color: #fff; border-color: var(--danger); }
+    50% { background-color: transparent; color: var(--danger); border-color: var(--danger); }
+}
+#save-btn.dirty {
+    animation: blink-red 0.8s infinite;
+}
+</style>
+<script>
+// ── Remember last-used group via localStorage ──────────────────────────
+(function() {
+    const STORAGE_KEY = 'lastGroupRoutingId';
+    const groupSelect = document.getElementById('group-select');
+    const groupForm = document.getElementById('group-select-form');
+
+    if (!groupSelect || !groupForm) return;
+
+    // On page load: if URL has no explicit group_id, redirect to last used
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentGroupId = urlParams.get('group_id');
+    const lastGroupId = localStorage.getItem(STORAGE_KEY);
+
+    if (!currentGroupId && lastGroupId) {
+        // No group in URL — redirect to last used group
+        window.location.search = '?group_id=' + lastGroupId;
+        return;
+    }
+
+    // Store current group on change
+    groupSelect.addEventListener('change', function() {
+        localStorage.setItem(STORAGE_KEY, this.value);
+        groupForm.submit();
+    });
+
+    // Also store the initial group
+    if (currentGroupId) {
+        localStorage.setItem(STORAGE_KEY, currentGroupId);
+    }
+})();
+
+// ── Blink save button when any assignment is modified ──────────────────
+(function() {
+    const form = document.getElementById('assignments-form');
+    const saveBtn = document.getElementById('save-btn');
+    if (!form || !saveBtn) return;
+
+    const selects = form.querySelectorAll('.model-assign-select');
+
+    function checkDirty() {
+        let changed = false;
+        selects.forEach(function(sel) {
+            if (sel.value !== sel.dataset.original) {
+                changed = true;
+            }
+        });
+        if (changed) {
+            saveBtn.classList.add('dirty');
+        } else {
+            saveBtn.classList.remove('dirty');
+        }
+    }
+
+    selects.forEach(function(sel) {
+        sel.addEventListener('change', checkDirty);
+    });
+
+    // On form submit, stop blink (avoids flash during redirect)
+    form.addEventListener('submit', function() {
+        saveBtn.classList.remove('dirty');
+    });
+})();
+</script>
 {% endblock %}
