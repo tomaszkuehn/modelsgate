@@ -1,0 +1,55 @@
+models:
+- name: Gemini
+  provider: gemini
+  model_id: gemini-3.5-flash
+  description: null
+  capabilities:
+    text_input: true
+    image_input: true
+    multi_image_input: true
+    text_output: true
+    image_output: false
+    image_edit: false
+    streaming: false
+    max_images: 2
+    max_image_size_mb: 2.0
+  plan_tier: standard
+  cost_class: balanced
+  cost_weight: 1.0
+  enabled: true
+- name: Openrouter/free
+  provider: openrouter
+  model_id: openrouter/free
+  description: null
+  capabilities:
+    text_input: true
+    image_input: false
+    multi_image_input: true
+    text_output: true
+    image_output: false
+    image_edit: false
+    streaming: false
+    max_images: 2
+    max_image_size_mb: 1.0
+  plan_tier: standard
+  cost_class: balanced
+  cost_weight: 1.0
+  enabled: true
+- name: deepseek-chat
+  provider: deepseek
+  model_id: deepseek-chat
+  description: null
+  capabilities:
+    text_input: true
+    image_input: false
+    multi_image_input: false
+    text_output: true
+    image_output: false
+    image_edit: false
+    streaming: false
+    max_images: 0
+    max_image_size_mb: 0.0
+  plan_tier: standard
+  cost_class: cheapest
+  cost_weight: 0.3
+  enabled: true

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Task Mappings — AI Backend Admin{% endblock %}
+
+{% block content %}
+<h1>Task-to-Model Mappings</h1>
+
+<!-- Per-task detailed cards -->
+{% for row in matrix %}
+<div class="card" style="margin-bottom:24px;">
+    <div class="card-header">
+        <div>
+            <h2 style="display:inline;">{{ row.task_label }}</h2>
+            <code style="margin-left:8px;background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:0.8rem;">{{ row.task_type }}</code>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;">
+            {% set usage = usage_map.get(row.task_type, {}) %}
+            {% if usage %}
+            <span style="font-size:0.82rem;color:var(--text-muted);">{{ usage.count }} requests</span>
+            <span style="font-size:0.82rem;color:var(--text-muted);">{{ usage.total_tokens | int }} tokens</span>
+            {% endif %}
+            <span class="badge badge-success">{{ row.total_eligible }} eligible</span>
+        </div>
+    </div>
+
+    <!-- Primary model highlight -->
+    {% if row.primary_model %}
+    <div style="background:rgba(108,143,255,0.1);border:1px solid var(--primary);border-radius:var(--radius);padding:12px;margin-bottom:12px;">
+        <span style="color:var(--primary);font-weight:700;">Primary:</span>
+        <strong>{{ row.primary_model }}</strong>
+        <span style="color:var(--text-muted);font-size:0.85rem;">({{ row.primary_provider }}, {{ row.primary_tier }} tier)</span>
+    </div>
+    {% endif %}
+
+    <!-- Priority list -->
+    <table style="font-size:0.82rem;">
+        <thead>
+            <tr><th>Priority</th><th>Model</th><th>Provider</th><th>Tier</th><th>Cost Class</th><th>Weight</th><th>Available</th></tr>
+        </thead>
+        <tbody>
+            {% for c in row.candidates %}
+            <tr style="{% if not c.available %}opacity:0.5;{% endif %}{% if c.priority == 1 %}background:rgba(108,143,255,0.05);{% endif %}">
+                <td>
+                    {% if c.priority == 1 %}<strong style="color:var(--primary);">#1</strong>{% else %}#{{ c.priority }}{% endif %}
+                </td>
+                <td><strong>{{ c.model }}</strong></td>
+                <td>{{ c.provider }}</td>
+                <td><span class="badge {% if c.tier == 'premium' %}badge-error{% elif c.tier == 'standard' %}badge-enabled{% else %}badge-disabled{% endif %}">{{ c.tier }}</span></td>
+                <td>{{ c.cost_class }}</td>
+                <td style="text-align:center;">{{ c.cost_weight }}</td>
+                <td>
+                    <span style="color:{% if c.available %}#4ade80{% else %}#f87171{% endif %};font-weight:bold;">
+                        {{ '✓' if c.available else '✗' }}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Fallback chain -->
+    {% if row.fallback_chain %}
+    <div style="margin-top:12px;font-size:0.82rem;color:var(--text-muted);padding:8px;background:var(--surface2);border-radius:var(--radius);">
+        <strong>Fallback chain:</strong>
+        {% for fb in row.fallback_chain %}
+        <span style="padding:2px 6px;background:var(--surface);border-radius:4px;margin:0 2px;">
+            <strong>{{ fb.tier }}</strong> ({{ fb.models | join(", ") }})
+        </span>
+        {% if not loop.last %}<span style="margin:0 4px;">→</span>{% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if not row.candidates %}
+    <div class="empty-state">No models eligible for this task.</div>
+    {% endif %}
+</div>
+{% endfor %}
+
+<!-- Relaxation reference -->
+<div class="card">
+    <div class="card-header"><h2>Constraint Relaxation</h2></div>
+    <p style="color:var(--text-muted);margin-bottom:12px;font-size:0.85rem;">
+        When strict filters eliminate all candidates, constraints are relaxed in this order.
+    </p>
+    <table style="font-size:0.82rem;">
+        <thead><tr><th>Step</th><th>Constraint</th><th>Description</th></tr></thead>
+        <tbody>
+            {% for r in relaxation %}
+            <tr><td>{{ r.step }}</td><td><code>{{ r.constraint }}</code></td><td>{{ r.description }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

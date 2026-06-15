@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Groups — AI Backend Admin{% endblock %}
+
+{% block content %}
+<h1>Client Groups</h1>
+
+<div class="card">
+    <div class="card-header"><h2>Create Group</h2></div>
+    <form method="post" action="/admin/groups/create" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;max-width:100%;">
+        <div class="form-group" style="margin-bottom:0;"><label>Group Key *</label><input type="text" name="group_key" required placeholder="team-alpha" style="width:160px;"></div>
+        <div class="form-group" style="margin-bottom:0;"><label>Name</label><input type="text" name="name" required placeholder="Engineering Team" style="width:180px;"></div>
+        <div class="form-group" style="margin-bottom:0;"><label>Description</label><input type="text" name="description" placeholder="Optional" style="width:220px;"></div>
+        <button type="submit" class="btn btn-primary btn-sm">Create</button>
+    </form>
+</div>
+
+<div class="card">
+    <div class="card-header"><h2>Groups ({{ groups | length }})</h2></div>
+    {% if groups %}
+    <table style="font-size:0.82rem;">
+        <thead><tr><th>Group Key</th><th>Name</th><th>Description</th><th>Clients</th><th>Status</th></tr></thead>
+        <tbody>
+            {% for g in groups %}
+            <tr style="{% if not g.is_active %}opacity:0.5;{% endif %}">
+                <td><code style="font-size:0.8rem;">{{ g.group_key }}</code></td>
+                <td><strong>{{ g.name }}</strong></td>
+                <td>{{ g.description or '—' }}</td>
+                <td>{{ g.client_count }}</td>
+                <td><span class="badge {% if g.is_active %}badge-enabled{% else %}badge-disabled{% endif %}">{{ 'active' if g.is_active else 'inactive' }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No groups defined. Default group is seeded on startup.</div>
+    {% endif %}
+</div>
+{% endblock %}

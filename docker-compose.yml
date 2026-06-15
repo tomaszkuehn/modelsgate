@@ -1,0 +1,22 @@
+services:
+  backend:
+    build: .
+    container_name: ai-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist data (keys, database) across restarts
+      - ./data:/app/data
+      # Mount config for live editing
+      - ./models_config.yaml:/app/models_config.yaml
+    env_file:
+      - .env
+    environment:
+      - DATA_DIR=/app/data
+      - MODELS_CONFIG_PATH=/app/models_config.yaml
+    restart: unless-stopped
+    # Resource limits (optional)
+    deploy:
+      resources:
+        limits:
+          memory: 512M

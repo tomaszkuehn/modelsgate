@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Group Routing — AI Backend Admin{% endblock %}
+
+{% block content %}
+<h1>Group Task Routing</h1>
+<p style="color:var(--text-muted);margin-bottom:16px;font-size:0.85rem;">
+    Assign specific models to task types per client group. Clients in the selected group
+    will use the assigned model instead of the default router. Leave a task set to
+    <strong>— default —</strong> to fall back to normal routing.
+</p>
+
+{% if request.query_params.get("saved") %}
+<div class="alert alert-success">Assignments saved for this group.</div>
+{% endif %}
+
+<!-- Group selector -->
+<div class="card" style="margin-bottom:16px;">
+    <form method="get" action="/admin/group-routing" style="display:flex;gap:12px;align-items:flex-end;">
+        <div class="form-group" style="margin-bottom:0;">
+            <label>Select Group</label>
+            <select name="group_id" onchange="this.form.submit()" style="padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:0.9rem;min-width:220px;">
+                <option value="0">— choose a group —</option>
+                {% for g in groups %}
+                <option value="{{ g.id }}" {% if selected_group_id == g.id %}selected{% endif %}>{{ g.group_key }} ({{ g.name }})</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+</div>
+
+{% if selected_group %}
+<!-- Assignment grid -->
+<div class="card">
+    <div class="card-header">
+        <h2>{{ selected_group.group_key }} — Task Assignments</h2>
+    </div>
+    <form method="post" action="/admin/group-routing/save">
+        <input type="hidden" name="group_id" value="{{ selected_group.id }}">
+        <table style="font-size:0.82rem;">
+            <thead>
+                <tr><th>Task Type</th><th>Assigned Model</th></tr>
+            </thead>
+            <tbody>
+                {% for task in task_types %}
+                {% set current = assignments.get(task) %}
+                <tr>
+                    <td style="width:240px;">
+                        <strong>{{ task.replace('_', ' ').title() }}</strong>
+                        <br><code style="font-size:0.72rem;color:var(--text-muted);">{{ task }}</code>
+                    </td>
+                    <td>
+                        <select name="model_{{ task }}" style="padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:0.82rem;min-width:240px;">
+                            <option value="">— default (no override) —</option>
+                            {% for m in models %}
+                            <option value="{{ m.name }}" {% if current == m.name %}selected{% endif %}>{{ m.name }} ({{ m.provider }})</option>
+                            {% endfor %}
+                        </select>
+                        {% if current %}
+                        <span style="color:var(--primary);font-size:0.75rem;margin-left:6px;">currently: {{ current }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div style="margin-top:12px;">
+            <button type="submit" class="btn btn-primary">Save Assignments</button>
+        </div>
+    </form>
+</div>
+{% else %}
+<div class="card">
+    <div class="empty-state">Select a group above to configure task→model assignments.</div>
+</div>
+{% endif %}
+{% endblock %}

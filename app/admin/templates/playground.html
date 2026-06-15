@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}API Playground — AI Backend Admin{% endblock %}
+
+{% block head %}
+<style>
+.play-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.play-grid-full { grid-column:1/-1; }
+.preview-box { background:var(--surface2); border-radius:var(--radius); padding:12px; max-height:400px; overflow-y:auto; font-family:monospace; font-size:0.75rem; white-space:pre-wrap; word-break:break-all; color:var(--text-muted); }
+.preview-box code { color:var(--text); }
+.form-row { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-bottom:8px; }
+.form-row label { font-size:0.75rem; color:var(--text-muted); display:block; margin-bottom:2px; }
+.form-row input, .form-row select, .form-row textarea { padding:6px 8px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-size:0.8rem; }
+.form-row textarea { font-family:monospace; font-size:0.75rem; min-height:80px; resize:vertical; }
+.msg-block { background:var(--bg); border:1px solid var(--border); border-radius:4px; padding:8px; margin-bottom:6px; }
+.btn-send { padding:10px 32px; font-size:0.9rem; font-weight:700; }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>API Playground</h1>
+
+<div class="play-grid">
+    <!-- Request builder -->
+    <div>
+        <div class="card">
+            <div class="card-header"><h2>Build Request</h2></div>
+
+            <div class="form-row">
+                <div><label>Task Type</label><select id="task_type" style="min-width:180px;">{% for t in task_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}</select></div>
+                <div><label>Client ID <span style="font-size:0.7rem;color:var(--text-muted);">(type or select, live from DB)</span></label><input type="text" id="client_id" list="client_list" placeholder="cl_..." style="min-width:280px;"><datalist id="client_list"></datalist><button onclick="refreshClients()" class="btn btn-outline btn-sm" style="font-size:0.65rem;padding:2px 6px;margin-left:4px;" title="Refresh client list from database">↻</button></div>
+            </div>
+
+            <div class="form-row">
+                <div><label>Model (optional override)</label><input type="text" id="model" placeholder="auto" style="width:180px;"></div>
+                <div><label>Output Type</label><select id="output_type"><option value="">auto</option><option>text</option><option>image</option><option>text_and_image</option></select></div>
+                <div><label>Plan Tier</label><select id="plan_tier"><option value="">auto</option><option>free</option><option>standard</option><option>premium</option></select></div>
+                <div><label>Cost Class</label><select id="cost_class"><option value="">auto</option><option>cheapest</option><option>balanced</option><option>best</option></select></div>
+                <div><label>Provider</label><select id="preferred_provider"><option value="">any</option><option>openai</option><option>anthropic</option><option>gemini</option><option>deepseek</option><option>openrouter</option><option>alibaba</option><option>ollama</option></select></div>
+            </div>
+
+            <div class="form-row">
+                <div><label>Temperature</label><input type="number" id="temperature" value="0.7" step="0.1" min="0" max="2" style="width:70px;"></div>
+                <div><label>Max Tokens</label><input type="number" id="max_tokens" value="1024" min="1" style="width:80px;"></div>
+                <div><label>Async Mode</label><select id="async_mode"><option value="false">sync</option><option value="true">async</option></select></div>
+            </div>
+
+            <label style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;">Messages</label>
+            <div id="messages_container">
+                <div class="msg-block">
+                    <select class="msg-role" style="margin-bottom:4px;"><option>user</option><option>system</option><option>assistant</option></select>
+                    <textarea class="msg-text" placeholder="Your message here...">What is the capital of France?</textarea>
+                </div>
+            </div>
+            <button onclick="addMessage()" class="btn btn-outline btn-sm" style="margin-top:4px;">+ Add Message</button>
+
+            <div style="margin-top:12px;">
+                <button onclick="sendRequest()" class="btn btn-primary btn-send">Send Request</button>
+                <span id="status" style="margin-left:12px;font-size:0.82rem;color:var(--text-muted);"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Response viewer -->
+    <div>
+        <div class="card">
+            <div class="card-header"><h2>Original Request</h2></div>
+            <div class="preview-box" id="original_preview">—</div>
+        </div>
+        <div class="card">
+            <div class="card-header"><h2>Encrypted Envelope</h2></div>
+            <div class="preview-box" id="envelope_preview">—</div>
+        </div>
+        <div class="card">
+            <div class="card-header"><h2>Decrypted Response</h2></div>
+            <div class="preview-box" id="response_preview">—</div>
+            <div id="response_meta" style="font-size:0.78rem;color:var(--primary);margin-top:6px;"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function refreshClients() {
+    try {
+        const resp = await fetch('/admin/playground/clients');
+        const clients = await resp.json();
+        const list = document.getElementById('client_list');
+        list.innerHTML = '';
+        clients.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.key;
+            opt.textContent = `${c.key} (${c.plan}, group: ${c.group})`;
+            list.appendChild(opt);
+        });
+    } catch(e) { console.error('Failed to load clients:', e); }
+}
+refreshClients();  // load on page open
+
+function addMessage() {
+    const container = document.getElementById('messages_container');
+    const block = document.createElement('div');
+    block.className = 'msg-block';
+    block.innerHTML = `
+        <select class="msg-role" style="margin-bottom:4px;"><option>user</option><option>system</option><option>assistant</option></select>
+        <textarea class="msg-text" placeholder="Message text..." style="width:100%;"></textarea>
+    `;
+    container.appendChild(block);
+}
+
+function buildMessages() {
+    const blocks = document.querySelectorAll('.msg-block');
+    const messages = [];
+    blocks.forEach(b => {
+        const role = b.querySelector('.msg-role').value;
+        const text = b.querySelector('.msg-text').value.trim();
+        if (text) {
+            messages.push({role, content: [{type: 'text', text}]});
+        }
+    });
+    return messages;
+}
+
+function $(id) { return document.getElementById(id); }
+
+async function sendRequest() {
+    $('status').textContent = 'Sending...';
+    $('original_preview').textContent = '—';
+    $('envelope_preview').textContent = '—';
+    $('response_preview').textContent = '—';
+    $('response_meta').textContent = '';
+
+    const payload = {
+        task_type: $('task_type').value,
+        messages: buildMessages(),
+        client_id: $('client_id').value || null,
+        async_mode: $('async_mode').value === 'true',
+    };
+    for (const f of ['model','output_type','plan_tier','cost_class','preferred_provider']) {
+        if ($(f).value) payload[f] = $(f).value;
+    }
+    const temp = parseFloat($('temperature').value);
+    const mt = parseInt($('max_tokens').value);
+    if (!isNaN(temp) || !isNaN(mt)) {
+        payload.parameters = {};
+        if (!isNaN(temp)) payload.parameters.temperature = temp;
+        if (!isNaN(mt)) payload.parameters.max_tokens = mt;
+    }
+
+    $('original_preview').textContent = JSON.stringify(payload, null, 2);
+
+    try {
+        const resp = await fetch('/admin/playground/send', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
+        });
+        const data = await resp.json();
+
+        $('envelope_preview').textContent = JSON.stringify(data.encrypted_envelope, null, 2);
+
+        if (data.response) {
+            $('response_preview').textContent = JSON.stringify(data.response, null, 2);
+            if (data.response.model) {
+                $('response_meta').textContent =
+                    'Model: ' + data.response.model +
+                    ' | Task: ' + (data.response.task_type || '—') +
+                    (data.response.error ? ' | ERROR: ' + data.response.error : '') +
+                    (data.response.usage ? ' | Tokens: ' + data.response.usage.total_tokens : '') +
+                    (data.response.job_id ? ' | Job: ' + data.response.job_id : '');
+            }
+            $('status').textContent = data.response.error ? 'Error returned' : 'OK';
+            $('status').style.color = data.response.error ? 'var(--danger)' : 'var(--success)';
+        } else {
+            $('response_preview').textContent = 'No response';
+            $('status').textContent = 'Failed';
+            $('status').style.color = 'var(--danger)';
+        }
+    } catch(e) {
+        $('response_preview').textContent = 'Error: ' + e.message;
+        $('status').textContent = 'Request failed';
+        $('status').style.color = 'var(--danger)';
+    }
+}
+</script>
+{% endblock %}

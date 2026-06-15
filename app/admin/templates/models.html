@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Models — AI Backend Admin{% endblock %}
+
+{% block content %}
+<h1>Model Configuration</h1>
+
+{% if request.query_params.get("created") %}
+<div class="alert alert-success">Model created. Registry reloaded, YAML synced.</div>
+{% endif %}
+{% if request.query_params.get("updated") %}
+<div class="alert alert-success">Model updated. Registry reloaded, YAML synced.</div>
+{% endif %}
+{% if request.query_params.get("deleted") %}
+<div class="alert alert-success">Model deleted.</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<!-- Add form -->
+<div class="card">
+    <div class="card-header"><h2>Add Model</h2></div>
+    <form method="post" action="/admin/models/create" style="font-size:0.82rem;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:12px;">
+            <div><label>Name *</label><input type="text" name="name" required placeholder="my-model" style="width:100%;padding:6px 8px;font-size:0.82rem;"></div>
+            <div><label>Provider *</label><select name="provider" style="width:100%;padding:6px 8px;font-size:0.82rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);"><option>openai</option><option>anthropic</option><option>gemini</option><option>openrouter</option><option>alibaba</option><option>deepseek</option><option>ollama</option></select></div>
+            <div><label>Model ID *</label><input type="text" name="model_id" required placeholder="gpt-4o" style="width:100%;padding:6px 8px;font-size:0.82rem;"></div>
+            <div><label>Description</label><input type="text" name="description" placeholder="Optional" style="width:100%;padding:6px 8px;font-size:0.82rem;"></div>
+            <div><label>API Key (opt.)</label><input type="text" name="api_key" placeholder="Overrides env var" style="width:100%;padding:6px 8px;font-size:0.82rem;"></div>
+            <div><label>Plan Tier</label><select name="plan_tier" style="width:100%;padding:6px 8px;font-size:0.82rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);"><option>free</option><option selected>standard</option><option>premium</option></select></div>
+            <div><label>Cost Class</label><select name="cost_class" style="width:100%;padding:6px 8px;font-size:0.82rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);"><option>cheapest</option><option selected>balanced</option><option>best</option></select></div>
+            <div><label>Cost Weight</label><input type="number" name="cost_weight" value="1.0" step="0.1" min="0" style="width:100%;padding:6px 8px;font-size:0.82rem;"></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+            <label style="font-size:0.78rem;"><input type="checkbox" name="text_input" checked> Text In</label>
+            <label style="font-size:0.78rem;"><input type="checkbox" name="image_input"> Img In</label>
+            <label style="font-size:0.78rem;"><input type="checkbox" name="multi_image_input"> Multi Img</label>
+            <label style="font-size:0.78rem;"><input type="checkbox" name="text_output" checked> Text Out</label>
+            <label style="font-size:0.78rem;"><input type="checkbox" name="image_output"> Img Out</label>
+            <label style="font-size:0.78rem;"><input type="checkbox" name="image_edit"> Img Edit</label>
+            <label style="font-size:0.78rem;"><input type="checkbox" name="streaming"> Stream</label>
+            <label style="font-size:0.78rem;">Max Img <input type="number" name="max_images" value="0" min="0" style="width:50px;padding:2px 4px;font-size:0.78rem;"></label>
+            <label style="font-size:0.78rem;">Max MB <input type="number" name="max_image_size_mb" value="0" step="0.1" min="0" style="width:60px;padding:2px 4px;font-size:0.78rem;"></label>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Add Model</button>
+    </form>
+</div>
+
+<!-- Model list with inline edit -->
+<div class="card">
+    <div class="card-header">
+        <h2>Registered Models ({{ models | length }})</h2>
+        <span style="color:var(--text-muted);font-size:0.78rem;">Config: {{ config_path }} | DB-backed, YAML synced</span>
+    </div>
+
+    {% if models %}
+    {% for name, config in models.items() %}
+    {% set usage = usage_map.get(name, {}) %}
+    {% set db_row = db_rows.get(name) %}
+    <div style="margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:12px;{% if not config.enabled %}opacity:0.6;{% endif %}">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <strong>{{ name }}</strong>
+            <span class="badge" style="font-size:0.72rem;background:var(--surface2);">{{ config.provider }}</span>
+            <code style="font-size:0.75rem;background:var(--surface2);padding:1px 4px;border-radius:3px;">{{ config.model_id }}</code>
+            <span class="badge {% if config.enabled %}badge-enabled{% else %}badge-disabled{% endif %}">{{ 'enabled' if config.enabled else 'disabled' }}</span>
+            {% if usage.count %}
+            <span style="font-size:0.75rem;color:var(--text-muted);">{{ usage.count }} requests, {{ usage.total_tokens | int }} tokens</span>
+            {% endif %}
+        </div>
+
+        <!-- Capability badges -->
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
+            {% set caps = [
+                ('TxtIn', config.supports_text_input, '#4ade80'),
+                ('ImgIn', config.supports_image_input, '#60a5fa'),
+                ('Multi', config.supports_multi_image_input, '#c084fc'),
+                ('TxtOut', config.supports_text_output, '#4ade80'),
+                ('ImgOut', config.supports_image_output, '#fbbf24'),
+                ('Edit', config.supports_image_edit, '#f97316'),
+                ('Stream', config.supports_streaming, '#34d399'),
+            ] %}
+            {% for label, val, color in caps %}
+            <span style="font-size:0.68rem;padding:1px 5px;border-radius:3px;background:{% if val %}{{ color }}22{% else %}var(--surface2){% endif %};color:{% if val %}{{ color }}{% else %}var(--text-muted){% endif %};border:1px solid {% if val %}{{ color }}44{% else %}var(--border){% endif %};">
+                {{ label }}{{ ' ✓' if val else '' }}
+            </span>
+            {% endfor %}
+        </div>
+
+        <!-- Inline edit form (collapsed by default) -->
+        <details style="font-size:0.78rem;">
+            <summary style="cursor:pointer;color:var(--primary);">Edit</summary>
+            <form method="post" action="/admin/models/{{ name }}/update" style="margin-top:8px;">
+                <input type="hidden" name="name" value="{{ name }}">
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin-bottom:8px;">
+                    <div><label style="font-size:0.72rem;">Provider</label><select name="provider" style="width:100%;padding:4px 6px;font-size:0.75rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);"><option {% if config.provider=='openai' %}selected{% endif %}>openai</option><option {% if config.provider=='anthropic' %}selected{% endif %}>anthropic</option><option {% if config.provider=='gemini' %}selected{% endif %}>gemini</option><option {% if config.provider=='openrouter' %}selected{% endif %}>openrouter</option><option {% if config.provider=='alibaba' %}selected{% endif %}>alibaba</option><option {% if config.provider=='deepseek' %}selected{% endif %}>deepseek</option><option {% if config.provider=='ollama' %}selected{% endif %}>ollama</option></select></div>
+                    <div><label style="font-size:0.72rem;">Model ID</label><input type="text" name="model_id" value="{{ config.model_id }}" style="width:100%;padding:4px 6px;font-size:0.75rem;"></div>
+                    <div><label style="font-size:0.72rem;">Tier</label><select name="plan_tier" style="width:100%;padding:4px 6px;font-size:0.75rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);"><option value="free" {% if config.plan_tier.value=='free' %}selected{% endif %}>free</option><option value="standard" {% if config.plan_tier.value=='standard' %}selected{% endif %}>standard</option><option value="premium" {% if config.plan_tier.value=='premium' %}selected{% endif %}>premium</option></select></div>
+                    <div><label style="font-size:0.72rem;">Cost</label><select name="cost_class" style="width:100%;padding:4px 6px;font-size:0.75rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);"><option value="cheapest" {% if config.cost_class.value=='cheapest' %}selected{% endif %}>cheapest</option><option value="balanced" {% if config.cost_class.value=='balanced' %}selected{% endif %}>balanced</option><option value="best" {% if config.cost_class.value=='best' %}selected{% endif %}>best</option></select></div>
+                    <div><label style="font-size:0.72rem;">Weight</label><input type="number" name="cost_weight" value="{{ config.cost_weight }}" step="0.1" style="width:100%;padding:4px 6px;font-size:0.75rem;"></div>
+                    <div><label style="font-size:0.72rem;">Description</label><input type="text" name="description" value="{{ config.description or '' }}" style="width:100%;padding:4px 6px;font-size:0.75rem;"></div>
+                    <div><label style="font-size:0.72rem;">API Key</label><input type="text" name="api_key" value="{{ db_row.api_key or '' if db_row else '' }}" placeholder="Overrides env var" style="width:100%;padding:4px 6px;font-size:0.75rem;"></div>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+                    <label style="font-size:0.72rem;"><input type="checkbox" name="text_input" {% if config.supports_text_input %}checked{% endif %}> Text In</label>
+                    <label style="font-size:0.72rem;"><input type="checkbox" name="image_input" {% if config.supports_image_input %}checked{% endif %}> Img In</label>
+                    <label style="font-size:0.72rem;"><input type="checkbox" name="multi_image_input" {% if config.supports_multi_image_input %}checked{% endif %}> Multi</label>
+                    <label style="font-size:0.72rem;"><input type="checkbox" name="text_output" {% if config.supports_text_output %}checked{% endif %}> Text Out</label>
+                    <label style="font-size:0.72rem;"><input type="checkbox" name="image_output" {% if config.supports_image_output %}checked{% endif %}> Img Out</label>
+                    <label style="font-size:0.72rem;"><input type="checkbox" name="image_edit" {% if config.supports_image_edit %}checked{% endif %}> Edit</label>
+                    <label style="font-size:0.72rem;"><input type="checkbox" name="streaming" {% if config.supports_streaming %}checked{% endif %}> Stream</label>
+                    <label style="font-size:0.72rem;">Max Img <input type="number" name="max_images" value="{{ config.max_images }}" style="width:45px;padding:2px 4px;font-size:0.72rem;"></label>
+                    <label style="font-size:0.72rem;">Max MB <input type="number" name="max_image_size_mb" value="{{ config.max_image_size_mb }}" step="0.1" style="width:55px;padding:2px 4px;font-size:0.72rem;"></label>
+                    <label style="font-size:0.72rem;"><input type="checkbox" name="enabled" {% if config.enabled %}checked{% endif %}> Enabled</label>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+            </form>
+        </details>
+
+        <!-- Delete button -->
+        <form method="post" action="/admin/models/{{ name }}/delete" style="margin-top:6px;display:inline-block;"
+              onsubmit="{% if usage.count %}return confirm('WARNING: {{ name }} has {{ usage.count }} usage records and {{ usage.total_tokens | int }} tokens logged. Delete is blocked if usage exists. Disable it instead.');{% else %}return confirm('Delete {{ name }}? This cannot be undone.');{% endif %}">
+            <button type="submit" class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger);font-size:0.72rem;"
+                    {% if usage.count %}disabled title="Cannot delete: model has usage history. Disable instead."{% endif %}>
+                Delete
+            </button>
+        </form>
+        {% if usage.count %}
+        <span style="color:var(--warning);font-size:0.72rem;margin-left:8px;">⚠ {{ usage.count }} requests logged — delete blocked. Disable instead.</span>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state">No models configured. Add one above or seed from models_config.yaml.</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('input[name="multi_image_input"]').forEach(cb => {
+    cb.addEventListener('change', function() {
+        if (this.checked) {
+            const imgIn = this.closest('form').querySelector('input[name="image_input"]');
+            if (imgIn && !imgIn.checked) imgIn.checked = true;
+        }
+    });
+});
+document.querySelectorAll('input[name="image_edit"]').forEach(cb => {
+    cb.addEventListener('change', function() {
+        if (this.checked) {
+            const form = this.closest('form');
+            ['image_output','image_input'].forEach(n => {
+                const el = form.querySelector('input[name="'+n+'"]');
+                if (el && !el.checked) el.checked = true;
+            });
+        }
+    });
+});
+document.querySelectorAll('input[name="image_input"]').forEach(cb => {
+    cb.addEventListener('change', function() {
+        if (!this.checked) {
+            const form = this.closest('form');
+            ['multi_image_input','image_edit'].forEach(n => {
+                const el = form.querySelector('input[name="'+n+'"]');
+                if (el && el.checked) el.checked = false;
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

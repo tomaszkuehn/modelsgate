@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Policies — AI Backend Admin{% endblock %}
+
+{% block content %}
+<h1>Routing Policies</h1>
+
+<div class="card">
+    <div class="card-header"><h2>Create Policy</h2></div>
+    <form method="post" action="/admin/policies/create" style="display:flex;gap:12px;align-items:flex-end;max-width:100%;">
+        <div class="form-group" style="margin-bottom:0;"><label>Name</label><input type="text" name="name" required placeholder="e.g., Free Tier, Pro Tier" style="width:200px;"></div>
+        <div class="form-group" style="margin-bottom:0;"><label>Description</label><input type="text" name="description" placeholder="What this policy restricts" style="width:280px;"></div>
+        <button type="submit" class="btn btn-primary btn-sm">Create</button>
+    </form>
+    <p style="color:var(--text-muted);font-size:0.8rem;margin-top:8px;">
+        Policies are created with permissive defaults. Edit <code>models_config.yaml</code> → routing_policies table directly to configure restrictions.
+    </p>
+</div>
+
+<div class="card">
+    <div class="card-header"><h2>Policies ({{ policies | length }})</h2></div>
+    {% if policies %}
+    {% for p in policies %}
+    <div style="margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:16px;{% if not p.is_active %}opacity:0.5;{% endif %}">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+            <strong style="font-size:1rem;">{{ p.name }}</strong>
+            <span class="badge {% if p.is_active %}badge-enabled{% else %}badge-disabled{% endif %}">{{ 'active' if p.is_active else 'inactive' }}</span>
+            <span style="font-size:0.8rem;color:var(--text-muted);">priority: {{ p.priority }}</span>
+            <span style="font-size:0.8rem;color:var(--text-muted);">{{ p.client_count }} clients, {{ p.group_count }} groups</span>
+            <form method="post" action="/admin/policies/{{ p.id }}/toggle" style="display:inline;margin-left:auto;">
+                <button class="btn btn-outline btn-sm">{{ 'Deactivate' if p.is_active else 'Activate' }}</button>
+            </form>
+        </div>
+        {% if p.description %}<p style="color:var(--text-muted);font-size:0.82rem;">{{ p.description }}</p>{% endif %}
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;font-size:0.78rem;margin-top:8px;">
+            <div><strong>Task Types:</strong> {{ p.allowed_task_types | default('all',true) }}</div>
+            <div><strong>Providers:</strong> {{ p.allowed_providers | default('all',true) }}</div>
+            <div><strong>Models:</strong> {{ p.allowed_models | default('all',true) }}</div>
+            <div><strong>Max Tokens/Req:</strong> {{ p.max_tokens_per_request if p.max_tokens_per_request else 'unlimited' }}</div>
+            <div><strong>Max Tokens/Day:</strong> {{ p.max_tokens_per_day if p.max_tokens_per_day else 'unlimited' }}</div>
+            <div><strong>Max Tokens/Month:</strong> {{ p.max_tokens_per_month if p.max_tokens_per_month else 'unlimited' }}</div>
+            <div>
+                <strong>Caps:</strong>
+                <span style="color:{% if p.allow_image_input %}#4ade80{% else %}#f87171{% endif %};">img-in</span>
+                <span style="color:{% if p.allow_image_output %}#4ade80{% else %}#f87171{% endif %};">img-out</span>
+                <span style="color:{% if p.allow_image_edit %}#4ade80{% else %}#f87171{% endif %};">img-edit</span>
+                <span style="color:{% if p.allow_streaming %}#4ade80{% else %}#f87171{% endif %};">stream</span>
+            </div>
+            <div><strong>Max Tier:</strong> {{ p.max_plan_tier }}</div>
+            <div><strong>Max Cost:</strong> {{ p.max_cost_class }}</div>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state">No policies defined. Create one above.</div>
+    {% endif %}
+</div>
+{% endblock %}

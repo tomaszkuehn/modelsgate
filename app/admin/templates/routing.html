@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Routing Rules — AI Backend Admin{% endblock %}
+
+{% block content %}
+<h1>Routing Rules</h1>
+
+<!-- Summary cards -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ summary.enabled_models }}</div>
+        <div class="stat-label">Enabled Models</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ summary.task_types_configured }}</div>
+        <div class="stat-label">Tasks Covered</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ summary.providers | length }}</div>
+        <div class="stat-label">Providers</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ summary.relaxation_steps }}</div>
+        <div class="stat-label">Relaxation Steps</div>
+    </div>
+</div>
+
+<!-- Task → Model priority table -->
+<div class="card">
+    <div class="card-header"><h2>Task → Model Priority Order</h2></div>
+    <p style="color:var(--text-muted);margin-bottom:12px;font-size:0.85rem;">
+        For each task type, models are listed in priority order. The router selects the first available model. Fallback moves down the chain.
+    </p>
+    {% if matrix %}
+    {% for row in matrix %}
+    <div style="margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+            <strong style="font-size:1rem;">{{ row.task_label }}</strong>
+            <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:0.8rem;">{{ row.task_type }}</code>
+            <span class="badge badge-success">{{ row.total_eligible }} eligible</span>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            {% for c in row.candidates %}
+            <span style="background:{% if c.priority == 1 %}rgba(108,143,255,0.2){% else %}var(--surface2){% endif %};border:1px solid {% if c.priority == 1 %}var(--primary){% else %}var(--border){% endif %};border-radius:6px;padding:4px 10px;font-size:0.82rem;{% if not c.available %}opacity:0.5;{% endif %}">
+                {% if c.priority == 1 %}<strong>#1</strong>{% else %}#{{ c.priority }}{% endif %}
+                {{ c.model }}
+                <span style="color:var(--text-muted);font-size:0.72rem;">({{ c.provider }}, {{ c.tier }}, {{ c.cost_class }})</span>
+            </span>
+            {% if not loop.last %}<span style="color:var(--text-muted);">→</span>{% endif %}
+            {% endfor %}
+        </div>
+        <!-- Fallback chain -->
+        <div style="margin-top:6px;font-size:0.78rem;color:var(--text-muted);">
+            Fallback: {% for fb in row.fallback_chain %}
+            <strong>{{ fb.tier }}</strong> tier ({{ fb.models | join(", ") }})
+            {% if not loop.last %} → {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state">No routing data available. Add models to models_config.yaml.</div>
+    {% endif %}
+</div>
+
+<!-- Constraint relaxation order -->
+<div class="card">
+    <div class="card-header"><h2>Constraint Relaxation Order</h2></div>
+    <p style="color:var(--text-muted);margin-bottom:12px;font-size:0.85rem;">
+        When strict filters eliminate all candidates, constraints are relaxed in this order until a match is found.
+    </p>
+    <table>
+        <thead><tr><th>Step</th><th>Constraint</th><th>Description</th></tr></thead>
+        <tbody>
+            {% for r in relaxation %}
+            <tr>
+                <td>{{ r.step }}</td>
+                <td><code>{{ r.constraint }}</code></td>
+                <td>{{ r.description }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Recent routing failures -->
+<div class="card">
+    <div class="card-header"><h2>Recent Routing Failures</h2></div>
+    {% if failures %}
+    <table style="font-size:0.82rem;">
+        <thead><tr><th>Time</th><th>Request ID</th><th>Task</th><th>Model</th><th>Error</th></tr></thead>
+        <tbody>
+            {% for f in failures %}
+            <tr>
+                <td style="font-size:0.78rem;">{{ f.created_at[:19] if f.created_at else '—' }}</td>
+                <td style="font-family:monospace;font-size:0.75rem;">{{ f.request_id }}</td>
+                <td>{{ f.task_type or '—' }}</td>
+                <td>{{ f.model_name }}</td>
+                <td style="color:var(--danger);font-size:0.78rem;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ f.error_message }}">{{ f.error_message }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No routing failures recorded.</div>
+    {% endif %}
+</div>
+{% endblock %}

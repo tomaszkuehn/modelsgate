@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Usage Breakdowns — AI Backend Admin{% endblock %}
+
+{% block content %}
+<h1>Usage Breakdowns</h1>
+
+<!-- Top-line stats -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ summary.total_requests }}</div>
+        <div class="stat-label">Total Requests (30d)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ summary.total_tokens | int }}</div>
+        <div class="stat-label">Total Tokens</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ summary.avg_response_time_ms }} ms</div>
+        <div class="stat-label">Avg Response Time</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ summary.success_requests }}</div>
+        <div class="stat-label">Success Rate: {{ ((summary.success_requests / summary.total_requests * 100) if summary.total_requests > 0 else 0) | round(1) }}%</div>
+    </div>
+</div>
+
+<!-- Daily chart -->
+<div class="card">
+    <div class="card-header"><h2>Requests Per Day (Last 30 Days)</h2></div>
+    <div class="chart-container"><canvas id="dailyChart" height="80"></canvas></div>
+</div>
+
+<!-- By task type -->
+<div class="card">
+    <div class="card-header"><h2>Usage by Task Type</h2></div>
+    {% if by_task %}
+    <div class="chart-container"><canvas id="taskChart" height="80"></canvas></div>
+    <table style="font-size:0.82rem;margin-top:12px;">
+        <thead><tr><th>Task Type</th><th>Requests</th><th>Tokens</th><th>Avg Time</th><th>% of Total</th></tr></thead>
+        <tbody>
+            {% set total = by_task | sum(attribute='count') %}
+            {% for t in by_task %}
+            <tr>
+                <td><strong>{{ t.task_type }}</strong></td>
+                <td>{{ t.count }}</td>
+                <td>{{ t.total_tokens | int }}</td>
+                <td>{{ t.avg_response_time_ms }} ms</td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="flex:1;height:6px;background:var(--surface2);border-radius:3px;">
+                            <div style="width:{{ (t.count / total * 100) if total > 0 else 0 }}%;height:100%;background:var(--primary);border-radius:3px;"></div>
+                        </div>
+                        <span style="font-size:0.78rem;min-width:40px;">{{ ((t.count / total * 100) if total > 0 else 0) | round(1) }}%</span>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No task usage data yet.</div>
+    {% endif %}
+</div>
+
+<!-- By model -->
+<div class="card">
+    <div class="card-header"><h2>Usage by Model</h2></div>
+    {% if by_model %}
+    <table style="font-size:0.82rem;">
+        <thead><tr><th>Model</th><th>Requests</th><th>Tokens</th><th>Avg Time</th></tr></thead>
+        <tbody>
+            {% for m in by_model %}
+            <tr>
+                <td><strong>{{ m.model_name }}</strong></td>
+                <td>{{ m.count }}</td>
+                <td>{{ m.total_tokens | int }}</td>
+                <td>{{ m.avg_response_time_ms }} ms</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No model usage data yet.</div>
+    {% endif %}
+</div>
+
+<!-- Routing failures -->
+<div class="card">
+    <div class="card-header"><h2>Recent Routing Failures</h2></div>
+    {% if failures %}
+    <table style="font-size:0.78rem;">
+        <thead><tr><th>Time</th><th>Request ID</th><th>Task</th><th>Error</th></tr></thead>
+        <tbody>
+            {% for f in failures %}
+            <tr>
+                <td>{{ f.created_at[:19] if f.created_at else '—' }}</td>
+                <td style="font-family:monospace;font-size:0.72rem;">{{ f.request_id }}</td>
+                <td>{{ f.task_type or '—' }}</td>
+                <td style="color:var(--danger);font-size:0.75rem;max-width:350px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ f.error_message }}">{{ f.error_message }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No routing failures recorded.</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Daily chart
+const dailyData = {{ by_day | tojson }};
+new Chart(document.getElementById('dailyChart'), {
+    type: 'line',
+    data: {
+        labels: dailyData.map(d => d.day),
+        datasets: [{
+            label: 'Requests',
+            data: dailyData.map(d => d.count),
+            borderColor: '#6c8fff',
+            backgroundColor: 'rgba(108,143,255,0.1)',
+            fill: true, tension: 0.3,
+            pointRadius: 2, pointBackgroundColor: '#6c8fff',
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { ticks: { color: '#8b90a5', maxTicksLimit: 10 }, grid: { color: '#2e3346' } },
+            y: { ticks: { color: '#8b90a5' }, grid: { color: '#2e3346' }, beginAtZero: true }
+        }
+    }
+});
+
+// Task type bar chart
+const taskData = {{ by_task | tojson }};
+new Chart(document.getElementById('taskChart'), {
+    type: 'bar',
+    data: {
+        labels: taskData.map(d => d.task_type),
+        datasets: [{
+            label: 'Requests',
+            data: taskData.map(d => d.count),
+            backgroundColor: 'rgba(108,143,255,0.3)',
+            borderColor: '#6c8fff',
+            borderWidth: 1,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { ticks: { color: '#8b90a5', font: { size: 10 } }, grid: { display: false } },
+            y: { ticks: { color: '#8b90a5' }, grid: { color: '#2e3346' }, beginAtZero: true }
+        }
+    }
+});
+</script>
+{% endblock %}

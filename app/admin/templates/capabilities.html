@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Model Capabilities — AI Backend Admin{% endblock %}
+
+{% block content %}
+<h1>Model Capabilities</h1>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ summary.total_models }}</div>
+        <div class="stat-label">Total Models</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ summary.enabled_models }}</div>
+        <div class="stat-label">Enabled</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ summary.disabled_models }}</div>
+        <div class="stat-label">Disabled</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ summary.providers | join(", ") }}</div>
+        <div class="stat-label">Providers</div>
+    </div>
+</div>
+
+<!-- Full capability grid -->
+<div class="card">
+    <div class="card-header"><h2>Capability Matrix</h2></div>
+    <div style="overflow-x:auto;">
+    <table style="font-size:0.78rem;min-width:1000px;">
+        <thead>
+            <tr>
+                <th>Model</th>
+                <th>Provider</th>
+                <th>Text In</th>
+                <th>Img In</th>
+                <th>Multi Img</th>
+                <th>Text Out</th>
+                <th>Img Out</th>
+                <th>Edit</th>
+                <th>Stream</th>
+                <th>Max Img</th>
+                <th>Max MB</th>
+                <th>Tier</th>
+                <th>Cost</th>
+                <th>Weight</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in table %}
+            <tr style="{% if not row.enabled %}opacity:0.5;{% endif %}{% if not row.available %}text-decoration:line-through;{% endif %}">
+                <td><strong>{{ row.model }}</strong></td>
+                <td>{{ row.provider }}</td>
+                <td style="text-align:center;color:{% if row.task_types %}#4ade80{% else %}#8b90a5{% endif %};">{{ '✓' if row.task_types else '—' }}</td>
+                <td style="text-align:center;color:{% if 'vision_describe' in row.task_types or 'image_compare' in row.task_types %}#4ade80{% else %}#8b90a5{% endif %};">{{ '✓' if 'vision_describe' in row.task_types or 'image_compare' in row.task_types else '—' }}</td>
+                <td style="text-align:center;color:{% if 'image_compare' in row.task_types %}#4ade80{% else %}#8b90a5{% endif %};">{{ '✓' if 'image_compare' in row.task_types else '—' }}</td>
+                <td style="text-align:center;color:#4ade80;">✓</td>
+                <td style="text-align:center;color:{% if 'image' in row.output_types %}#4ade80{% else %}#8b90a5{% endif %};">{{ '✓' if 'image' in row.output_types else '—' }}</td>
+                <td style="text-align:center;color:{% if 'image_edit' in row.task_types %}#fbbf24{% else %}#8b90a5{% endif %};">{{ '✓' if 'image_edit' in row.task_types else '—' }}</td>
+                <td style="text-align:center;color:{% if row.streaming|default(false) %}#4ade80{% else %}#8b90a5{% endif %};">{{ '✓' if row.get('streaming') else '—' }}</td>
+                <td style="text-align:center;">{{ row.max_images | default(0) }}</td>
+                <td style="text-align:center;">{{ row.max_image_size_mb | default(0) }}</td>
+                <td><span class="badge {% if row.plan_tier == 'premium' %}badge-error{% elif row.plan_tier == 'standard' %}badge-enabled{% else %}badge-disabled{% endif %}">{{ row.plan_tier }}</span></td>
+                <td>{{ row.cost_class }}</td>
+                <td style="text-align:center;">{{ row.cost_weight }}</td>
+                <td>
+                    <span class="badge {% if row.enabled %}badge-enabled{% else %}badge-disabled{% endif %}">
+                        {{ 'enabled' if row.enabled else 'disabled' }}
+                    </span>
+                    {% if not row.available %}
+                    <span class="badge badge-error">unavailable</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+
+<!-- Task support matrix -->
+<div class="card">
+    <div class="card-header"><h2>Task Type Support</h2></div>
+    <div style="overflow-x:auto;">
+    <table style="font-size:0.78rem;">
+        <thead>
+            <tr>
+                <th>Model</th>
+                <th>chat_with_context</th>
+                <th>vision_describe</th>
+                <th>vision_qa</th>
+                <th>image_compare</th>
+                <th>image_generate</th>
+                <th>image_edit</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in table %}
+            <tr style="{% if not row.enabled %}opacity:0.5;{% endif %}">
+                <td><strong>{{ row.model }}</strong></td>
+                {% for task in ['chat_with_context','vision_describe','vision_qa','image_compare','image_generate','image_edit'] %}
+                <td style="text-align:center;">
+                    <span style="color:{% if task in row.task_types %}#4ade80{% else %}#8b90a5{% endif %};font-weight:bold;">
+                        {{ '✓' if task in row.task_types else '—' }}
+                    </span>
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endblock %}

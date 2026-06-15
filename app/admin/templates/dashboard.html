@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — AI Backend Admin{% endblock %}
+
+{% block content %}
+<h1>Dashboard</h1>
+
+<!-- Filter bar -->
+<div class="card" style="margin-bottom: 16px;">
+    <form method="get" action="/admin/dashboard" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; max-width:100%;">
+        <div class="form-group" style="margin-bottom:0; min-width:180px;">
+            <label for="task_type">Filter by Task Type</label>
+            <select id="task_type" name="task_type" style="width:100%; padding:8px 10px; background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); font-size:0.85rem;">
+                <option value="">All task types</option>
+                {% for t in distinct_tasks %}
+                <option value="{{ t }}" {% if selected_task_type == t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0; min-width:200px;">
+            <label for="conversation_id">Conversation ID</label>
+            <input type="text" id="conversation_id" name="conversation_id"
+                   value="{{ selected_conversation_id }}"
+                   placeholder="Filter by conversation..."
+                   style="padding:8px 10px;">
+        </div>
+        <div style="display:flex; gap:8px;">
+            <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+            <a href="/admin/dashboard" class="btn btn-outline btn-sm">Clear</a>
+        </div>
+    </form>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ summary.total_requests }}</div>
+        <div class="stat-label">Total Requests</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ summary.success_requests }}</div>
+        <div class="stat-label">Successful</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ summary.error_requests }}</div>
+        <div class="stat-label">Errors</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ summary.total_tokens | default(0) | int }}</div>
+        <div class="stat-label">Total Tokens</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ summary.avg_response_time_ms }} ms</div>
+        <div class="stat-label">Avg Response Time</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><h2>Requests Per Day (Last 7 Days)</h2></div>
+    <div class="chart-container">
+        <canvas id="dailyChart" height="80"></canvas>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><h2>Usage by Task Type</h2></div>
+    {% if by_task %}
+    <table>
+        <thead>
+            <tr><th>Task Type</th><th>Requests</th><th>Total Tokens</th><th>Avg Time</th></tr>
+        </thead>
+        <tbody>
+            {% for t in by_task %}
+            <tr>
+                <td><a href="?task_type={{ t.task_type }}" style="color:var(--primary);text-decoration:none;"><strong>{{ t.task_type }}</strong></a></td>
+                <td>{{ t.count }}</td>
+                <td>{{ t.total_tokens | int }}</td>
+                <td>{{ t.avg_response_time_ms }} ms</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No task type data yet.</div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="card-header"><h2>Usage by Model</h2></div>
+    {% if by_model %}
+    <table>
+        <thead>
+            <tr><th>Model</th><th>Requests</th><th>Total Tokens</th><th>Avg Time</th></tr>
+        </thead>
+        <tbody>
+            {% for m in by_model %}
+            <tr>
+                <td><strong>{{ m.model_name }}</strong></td>
+                <td>{{ m.count }}</td>
+                <td>{{ m.total_tokens | int }}</td>
+                <td>{{ m.avg_response_time_ms }} ms</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No usage data yet. Make your first API request!</div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="card-header"><h2>Recent Requests</h2></div>
+    {% if recent %}
+    <table style="font-size:0.78rem;">
+        <thead>
+            <tr><th>Request ID</th><th>Task</th><th>Model</th><th>Input</th><th>Output</th><th>Tokens</th><th>Time</th><th>Client</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            {% for r in recent %}
+            <tr>
+                <td style="font-family: monospace; font-size: 0.75rem;">{{ r.request_id }}</td>
+                <td><a href="?task_type={{ r.task_type or '' }}" style="color:var(--primary);text-decoration:none;font-size:0.78rem;">{{ r.task_type or '—' }}</a></td>
+                <td>{{ r.model_name }}</td>
+                <td style="font-size:0.75rem;">{{ r.input_modality or '—' }}</td>
+                <td style="font-size:0.75rem;">{{ r.output_modality or '—' }}</td>
+                <td>{{ r.total_tokens }}</td>
+                <td>{{ r.response_time_ms }} ms</td>
+                <td style="font-size:0.75rem;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ r.client_id or '' }}">
+                    {{ r.client_id or '—' }}
+                </td>
+                <td>
+                    <span class="badge {% if r.status == 'success' %}badge-success{% else %}badge-error{% endif %}">
+                        {{ r.status }}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No requests recorded yet.</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const dailyData = {{ by_day | tojson }};
+const labels = dailyData.map(d => d.day);
+const counts = dailyData.map(d => d.count);
+
+new Chart(document.getElementById('dailyChart'), {
+    type: 'line',
+    data: {
+        labels: labels,
+        datasets: [{
+            label: 'Requests',
+            data: counts,
+            borderColor: '#6c8fff',
+            backgroundColor: 'rgba(108, 143, 255, 0.1)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4,
+            pointBackgroundColor: '#6c8fff',
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { ticks: { color: '#8b90a5' }, grid: { color: '#2e3346' } },
+            y: {
+                ticks: { color: '#8b90a5', stepSize: 1 },
+                grid: { color: '#2e3346' },
+                beginAtZero: true,
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

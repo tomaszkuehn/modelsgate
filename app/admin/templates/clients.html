@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Clients — AI Backend Admin{% endblock %}
+
+{% block content %}
+<h1>Registered Clients</h1>
+
+<div class="card" style="margin-bottom:16px;">
+    <div class="card-header">
+        <h2>Register New Client</h2>
+        <span style="color:var(--text-muted);font-size:0.8rem;">Auto-generates ID, assigns free plan + default group</span>
+    </div>
+    <form method="post" action="/admin/clients/create">
+        <button type="submit" class="btn btn-primary btn-sm">Generate Client ID</button>
+    </form>
+    <p style="color:var(--text-muted);font-size:0.78rem;margin-top:8px;">
+        Clients can also self-register via <code>GET /api/v1/register</code>
+    </p>
+</div>
+
+<div class="card">
+    <div class="card-header"><h2>All Clients ({{ clients | length }})</h2></div>
+    {% if clients %}
+    <table style="font-size:0.82rem;">
+        <thead>
+            <tr><th>Client ID</th><th>Group</th><th>Plan</th><th>Tokens Today</th><th>Tokens Month</th><th>Registered</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody>
+            {% for c in clients %}
+            <tr style="{% if not c.is_active %}opacity:0.5;{% endif %}">
+                <td><code style="font-size:0.78rem;">{{ c.client_key }}</code></td>
+                <td>
+                    <form method="post" action="/admin/clients/{{ c.id }}/group" style="display:flex;gap:4px;align-items:center;">
+                        <select name="group_id" style="padding:3px 6px;font-size:0.72rem;background:var(--surface2);border:1px solid var(--border);border-radius:4px;color:var(--text);max-width:140px;">
+                            {% for g in groups %}
+                            <option value="{{ g.id }}" {% if c.group_id == g.id %}selected{% endif %}>{{ g.group_key }}</option>
+                            {% endfor %}
+                        </select>
+                        <button class="btn btn-outline btn-sm" style="font-size:0.65rem;padding:2px 6px;">Set</button>
+                    </form>
+                </td>
+                <td>
+                    <span class="badge {% if c.plan == 'free' %}badge-enabled{% else %}badge-error{% endif %}">{{ c.plan }}</span>
+                </td>
+                <td>{{ c.tokens_today | int }}</td>
+                <td>{{ c.tokens_month | int }}</td>
+                <td style="font-size:0.75rem;">{{ c.registered_at }}</td>
+                <td>
+                    <span class="badge {% if c.is_active %}badge-success{% else %}badge-disabled{% endif %}">{{ 'active' if c.is_active else 'blocked' }}</span>
+                </td>
+                <td>
+                    <form method="post" action="/admin/clients/{{ c.id }}/toggle" style="display:inline;">
+                        <button class="btn btn-outline btn-sm" style="font-size:0.7rem;">{{ 'Block' if c.is_active else 'Unblock' }}</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No clients registered yet. Generate one above.</div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Settings — AI Backend Admin{% endblock %}
+
+{% block content %}
+<h1>Settings</h1>
+
+{% if request.query_params.get("rotated") %}
+<div class="alert alert-success">Encryption keys rotated successfully! Clients must fetch the new public key.</div>
+{% endif %}
+
+{% if request.query_params.get("password_changed") %}
+<div class="alert alert-success">Password changed successfully.</div>
+{% endif %}
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<!-- Encryption Keys -->
+<div class="card">
+    <div class="card-header">
+        <h2>Encryption Keys</h2>
+    </div>
+    <p style="color: var(--text-muted); margin-bottom: 12px;">
+        Current RSA public key (first 200 chars). Clients fetch this at <code>GET /api/v1/public-key</code>.
+    </p>
+    <div class="key-preview">{{ public_key }}</div>
+
+    <form method="post" action="/admin/settings/rotate-keys" style="margin-top: 16px;"
+          onsubmit="return confirm('Rotating keys will invalidate all in-flight client sessions. Clients must fetch the new public key. Continue?')">
+        <button type="submit" class="btn btn-danger">Rotate Keys</button>
+    </form>
+</div>
+
+<!-- API Keys Status -->
+<div class="card">
+    <div class="card-header"><h2>Provider API Keys</h2></div>
+    <table>
+        <thead>
+            <tr><th>Provider</th><th>Status</th><th>Configuration</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>OpenAI</strong></td>
+                <td>
+                    <span class="badge {% if api_keys.openai %}badge-success{% else %}badge-disabled{% endif %}">
+                        {{ 'Configured' if api_keys.openai else 'Missing' }}
+                    </span>
+                </td>
+                <td style="font-family: monospace; font-size: 0.85rem;">OPENAI_API_KEY</td>
+            </tr>
+            <tr>
+                <td><strong>Anthropic</strong></td>
+                <td>
+                    <span class="badge {% if api_keys.anthropic %}badge-success{% else %}badge-disabled{% endif %}">
+                        {{ 'Configured' if api_keys.anthropic else 'Missing' }}
+                    </span>
+                </td>
+                <td style="font-family: monospace; font-size: 0.85rem;">ANTHROPIC_API_KEY</td>
+            </tr>
+            <tr>
+                <td><strong>Google Gemini</strong></td>
+                <td>
+                    <span class="badge {% if api_keys.gemini %}badge-success{% else %}badge-disabled{% endif %}">
+                        {{ 'Configured' if api_keys.gemini else 'Missing' }}
+                    </span>
+                </td>
+                <td style="font-family: monospace; font-size: 0.85rem;">GEMINI_API_KEY</td>
+            </tr>
+            <tr>
+                <td><strong>OpenRouter</strong></td>
+                <td>
+                    <span class="badge {% if api_keys.openrouter %}badge-success{% else %}badge-disabled{% endif %}">
+                        {{ 'Configured' if api_keys.openrouter else 'Missing' }}
+                    </span>
+                </td>
+                <td style="font-family: monospace; font-size: 0.85rem;">OPENROUTER_API_KEY</td>
+            </tr>
+            <tr>
+                <td><strong>Alibaba</strong></td>
+                <td>
+                    <span class="badge {% if api_keys.alibaba %}badge-success{% else %}badge-disabled{% endif %}">
+                        {{ 'Configured' if api_keys.alibaba else 'Missing' }}
+                    </span>
+                </td>
+                <td style="font-family: monospace; font-size: 0.85rem;">ALIBABA_API_KEY</td>
+            </tr>
+            <tr>
+                <td><strong>Deepseek</strong></td>
+                <td>
+                    <span class="badge {% if api_keys.deepseek %}badge-success{% else %}badge-disabled{% endif %}">
+                        {{ 'Configured' if api_keys.deepseek else 'Missing' }}
+                    </span>
+                </td>
+                <td style="font-family: monospace; font-size: 0.85rem;">DEEPSEEK_API_KEY</td>
+            </tr>
+            <tr>
+                <td><strong>Ollama</strong></td>
+                <td>
+                    <span class="badge badge-enabled">URL Set</span>
+                </td>
+                <td style="font-family: monospace; font-size: 0.85rem;">{{ api_keys.ollama_url }}</td>
+            </tr>
+        </tbody>
+    </table>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 12px;">
+        Set API keys in the <code>.env</code> file and restart the server.
+    </p>
+</div>
+
+<!-- Change Password -->
+<div class="card">
+    <div class="card-header"><h2>Change Admin Password</h2></div>
+    <form method="post" action="/admin/settings/change-password">
+        <div class="form-group">
+            <label for="current_password">Current Password</label>
+            <input type="password" id="current_password" name="current_password" required>
+        </div>
+        <div class="form-group">
+            <label for="new_password">New Password</label>
+            <input type="password" id="new_password" name="new_password" required minlength="6">
+        </div>
+        <button type="submit" class="btn btn-primary">Change Password</button>
+    </form>
+</div>
+
+<!-- Server Info -->
+<div class="card">
+    <div class="card-header"><h2>Server Information</h2></div>
+    <table>
+        <tr><td style="width: 200px; color: var(--text-muted);">Version</td><td>1.0.0</td></tr>
+        <tr><td style="color: var(--text-muted);">Encryption</td><td>RSA-2048 + AES-256-GCM</td></tr>
+        <tr><td style="color: var(--text-muted);">Database</td><td>SQLite (data/app.db)</td></tr>
+        <tr><td style="color: var(--text-muted);">Config</td><td>models_config.yaml</td></tr>
+    </table>
+</div>
+{% endblock %}
