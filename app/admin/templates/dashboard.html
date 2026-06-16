@@ -53,6 +53,31 @@
     </div>
 </div>
 
+{% if mem and mem.process %}
+<div class="stats-grid" style="margin-top:16px;">
+    <div class="stat-card">
+        <div class="stat-value" style="color:{% if mem.system.used_percent > 80 %}var(--danger){% elif mem.system.used_percent > 60 %}var(--warning){% else %}var(--success){% endif %};">
+            {{ mem.process.rss_mb }} MB
+        </div>
+        <div class="stat-label">Process RSS</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ mem.process.vms_mb }} MB</div>
+        <div class="stat-label">Process Virtual</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" style="color:{% if mem.system.used_percent > 80 %}var(--danger){% elif mem.system.used_percent > 60 %}var(--warning){% else %}var(--success){% endif %};">
+            {{ mem.system.used_percent }}%
+        </div>
+        <div class="stat-label">System RAM ({{ mem.system.available_gb }} GB free)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ mem.python_objects | length }}</div>
+        <div class="stat-label">Python Object Types</div>
+    </div>
+</div>
+{% endif %}
+
 <div class="card">
     <div class="card-header"><h2>Requests Per Day (Last 7 Days)</h2></div>
     <div class="chart-container">

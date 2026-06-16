@@ -449,6 +449,24 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
 
     response_time_ms = int((time.time() - start_time) * 1000)
 
+    # ── Release image data from memory after provider call ────────────
+    # Base64 images can be large — null them so GC can collect before
+    # the slower usage/trace/encrypt steps.
+    if normalized.messages:
+        for msg in normalized.messages:
+            if hasattr(msg, 'content'):
+                msg.content = [b for b in msg.content if isinstance(b, TextContent)]
+    if task_req is not None and task_req.messages:
+        task_req.messages = None
+    # Strip base64 image data from decrypted dict before trace duplicates it
+    _messages_for_trace = decrypted.get("messages", [])
+    for _m in _messages_for_trace:
+        if isinstance(_m, dict) and "content" in _m and isinstance(_m["content"], list):
+            _m["content"] = [
+                c for c in _m["content"]
+                if not (isinstance(c, dict) and (c.get("image") or c.get("image_url") or c.get("type") == "image_url"))
+            ]
+
     # ── 5. Record usage stats ───────────────────────────────────────
     try:
         import uuid as _uuid

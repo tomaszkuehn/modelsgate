@@ -96,6 +96,9 @@ async def dashboard(
         )
         distinct_tasks = await get_distinct_task_types(session)
 
+    from app.stats.memory import memory_stats
+    mem = memory_stats()
+
     return templates.TemplateResponse(
         "dashboard.html",
         {
@@ -108,6 +111,7 @@ async def dashboard(
             "distinct_tasks": distinct_tasks,
             "selected_task_type": task_type,
             "selected_conversation_id": conversation_id,
+            "mem": mem,
         },
     )
 
