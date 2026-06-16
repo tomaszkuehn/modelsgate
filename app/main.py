@@ -1,11 +1,25 @@
 """FastAPI application entry point."""
 
+import logging
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
+
+# ── Logging: timestamps on every line ────────────────────────────────────
+# Configure root logger directly (basicConfig is a no-op if uvicorn got there first).
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(logging.Formatter(
+    fmt="%(asctime)s %(levelname)-7s %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+))
+root = logging.getLogger()
+root.handlers.clear()  # remove uvicorn's default handler
+root.addHandler(handler)
+root.setLevel(logging.INFO)
 
 from app.config import settings
 from app.database import init_db

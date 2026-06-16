@@ -502,6 +502,7 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
                 session=session,
                 request_id=unified_response.id,
                 model_name=normalized.model,
+                model_id=routing_decision_obj.model_id if routing_decision_obj else None,
                 provider=(
                     registry.get_provider_name(normalized.model)
                     if unified_response.error is None
@@ -583,6 +584,7 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
             response=unified_response.model_dump(),
             task_type=normalized.task_type.value if normalized.task_type else None,
             model_name=normalized.model,
+            model_id=routing_decision_obj.model_id if routing_decision_obj else None,
             provider=registry.get_provider_name(normalized.model),
             status="error" if unified_response.error else "success",
             client_id=task_req.client_id,

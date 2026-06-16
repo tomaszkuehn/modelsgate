@@ -35,6 +35,10 @@ class UsageLog(Base):
         String(128), index=True,
         comment="Model alias from config (e.g., 'gpt-4o', 'claude-haiku')"
     )
+    model_id: Mapped[str | None] = mapped_column(
+        String(256), nullable=True,
+        comment="Provider-specific model identifier (e.g., 'qwen-vl-plus', 'gpt-4o')"
+    )
     provider: Mapped[str] = mapped_column(
         String(64),
         comment="Provider name: openai, anthropic, gemini, ollama"
@@ -411,6 +415,10 @@ class RequestLog(Base):
     request_id: Mapped[str] = mapped_column(String(64), index=True)
     task_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     model_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    model_id: Mapped[str | None] = mapped_column(
+        String(256), nullable=True,
+        comment="Provider-specific model identifier (e.g., 'qwen-vl-plus', 'gpt-4o')"
+    )
     provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
     client_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     api_key_prefix: Mapped[str | None] = mapped_column(

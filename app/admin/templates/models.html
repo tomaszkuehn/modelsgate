@@ -13,6 +13,9 @@
 {% if request.query_params.get("deleted") %}
 <div class="alert alert-success">Model deleted.</div>
 {% endif %}
+{% if request.query_params.get("error") %}
+<div class="alert alert-error">{{ request.query_params.get("error") }}</div>
+{% endif %}
 {% if error %}
 <div class="alert alert-error">{{ error }}</div>
 {% endif %}
@@ -91,8 +94,9 @@
         <details style="font-size:0.78rem;">
             <summary style="cursor:pointer;color:var(--primary);">Edit</summary>
             <form method="post" action="/admin/models/{{ name }}/update" style="margin-top:8px;">
-                <input type="hidden" name="name" value="{{ name }}">
+                <input type="hidden" name="original_name" value="{{ name }}">
                 <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin-bottom:8px;">
+                    <div><label style="font-size:0.72rem;">Name *</label><input type="text" name="name" value="{{ name }}" required style="width:100%;padding:4px 6px;font-size:0.75rem;"></div>
                     <div><label style="font-size:0.72rem;">Provider</label><select name="provider" style="width:100%;padding:4px 6px;font-size:0.75rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);"><option {% if config.provider=='openai' %}selected{% endif %}>openai</option><option {% if config.provider=='anthropic' %}selected{% endif %}>anthropic</option><option {% if config.provider=='gemini' %}selected{% endif %}>gemini</option><option {% if config.provider=='openrouter' %}selected{% endif %}>openrouter</option><option {% if config.provider=='alibaba' %}selected{% endif %}>alibaba</option><option {% if config.provider=='deepseek' %}selected{% endif %}>deepseek</option><option {% if config.provider=='ollama' %}selected{% endif %}>ollama</option></select></div>
                     <div><label style="font-size:0.72rem;">Model ID</label><input type="text" name="model_id" value="{{ config.model_id }}" style="width:100%;padding:4px 6px;font-size:0.75rem;"></div>
                     <div><label style="font-size:0.72rem;">Tier</label><select name="plan_tier" style="width:100%;padding:4px 6px;font-size:0.75rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);"><option value="free" {% if config.plan_tier.value=='free' %}selected{% endif %}>free</option><option value="standard" {% if config.plan_tier.value=='standard' %}selected{% endif %}>standard</option><option value="premium" {% if config.plan_tier.value=='premium' %}selected{% endif %}>premium</option></select></div>
@@ -112,7 +116,7 @@
                     <label style="font-size:0.72rem;"><input type="checkbox" name="streaming" {% if config.supports_streaming %}checked{% endif %}> Stream</label>
                     <label style="font-size:0.72rem;">Max Img <input type="number" name="max_images" value="{{ config.max_images }}" style="width:45px;padding:2px 4px;font-size:0.72rem;"></label>
                     <label style="font-size:0.72rem;">Max MB <input type="number" name="max_image_size_mb" value="{{ config.max_image_size_mb }}" step="0.1" style="width:55px;padding:2px 4px;font-size:0.72rem;"></label>
-                    <label style="font-size:0.72rem;"><input type="checkbox" name="enabled" {% if config.enabled %}checked{% endif %}> Enabled</label>
+                    <label style="font-size:0.72rem;"><input type="hidden" name="enabled" value="off"><input type="checkbox" name="enabled" value="on" {% if config.enabled %}checked{% endif %}> Enabled</label>
                 </div>
                 <button type="submit" class="btn btn-primary btn-sm">Save</button>
             </form>

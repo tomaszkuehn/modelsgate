@@ -29,6 +29,7 @@ async def trace_request(
     status: str = "success",
     client_id: Optional[str] = None,
     api_key_prefix: Optional[str] = None,
+    model_id: Optional[str] = None,
 ):
     """Log a full request trace including original, converted, and response.
 
@@ -39,6 +40,7 @@ async def trace_request(
         response: The unified response dict.
         task_type: The task type.
         model_name: The model alias used.
+        model_id: Provider-specific model identifier.
         provider: The provider name.
         status: 'success' or 'error'.
         api_key_prefix: First 8 chars of the API key used.
@@ -49,6 +51,7 @@ async def trace_request(
                 request_id=request_id,
                 task_type=task_type,
                 model_name=model_name,
+                model_id=model_id,
                 provider=provider,
                 client_id=client_id,
                 api_key_prefix=api_key_prefix,
@@ -97,6 +100,7 @@ async def get_recent_traces(limit: int = 50) -> list:
                 "request_id": log.request_id,
                 "task_type": log.task_type,
                 "model_name": log.model_name,
+                "model_id": log.model_id,
                 "provider": log.provider,
                 "client_id": log.client_id,
                 "api_key_prefix": log.api_key_prefix,

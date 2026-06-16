@@ -136,11 +136,12 @@
     {% if recent %}
     <table style="font-size:0.78rem;">
         <thead>
-            <tr><th>Request ID</th><th>Task</th><th>Model</th><th>Input</th><th>Output</th><th>Tokens</th><th>Time</th><th>Client</th><th>Status</th></tr>
+            <tr><th>When</th><th>Request ID</th><th>Task</th><th>Model</th><th>Input</th><th>Output</th><th>Tokens</th><th>Time</th><th>Client</th><th>Status</th></tr>
         </thead>
         <tbody>
             {% for r in recent %}
             <tr>
+                <td style="font-size:0.72rem;white-space:nowrap;color:var(--text-muted);">{{ r.created_at[:19] if r.created_at else '—' }}</td>
                 <td style="font-family: monospace; font-size: 0.75rem;">{{ r.request_id }}</td>
                 <td><a href="?task_type={{ r.task_type or '' }}" style="color:var(--primary);text-decoration:none;font-size:0.78rem;">{{ r.task_type or '—' }}</a></td>
                 <td>{{ r.model_name }}</td>

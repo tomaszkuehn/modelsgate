@@ -180,6 +180,7 @@ async def create_model(
     import json
     from app.database import async_session
     from app.stats.models import ModelConfigRow
+    from sqlalchemy import select as _sel
 
     caps = {
         "text_input": text_input, "image_input": image_input,
@@ -190,6 +191,16 @@ async def create_model(
     }
 
     async with async_session() as session:
+        # Block duplicate names
+        existing = (await session.execute(
+            _sel(ModelConfigRow).where(ModelConfigRow.name == name)
+        )).scalar_one_or_none()
+        if existing:
+            return RedirectResponse(
+                url=f"/admin/models?error=Name+'{name}'+already+exists",
+                status_code=303,
+            )
+
         row = ModelConfigRow(
             name=name, provider=provider, model_id=model_id,
             description=description or None,
@@ -217,6 +228,7 @@ async def update_model(
     request: Request,
     model_name: str,
     name: str = Form(...),
+    original_name: str = Form(""),
     provider: str = Form(...),
     model_id: str = Form(...),
     description: str = Form(""),
@@ -225,7 +237,7 @@ async def update_model(
     plan_tier: str = Form("standard"),
     cost_class: str = Form("balanced"),
     cost_weight: float = Form(1.0),
-    enabled: bool = Form(True),
+    enabled: str = Form("off"),
     text_input: bool = Form(True),
     image_input: bool = Form(False),
     multi_image_input: bool = Form(False),
@@ -252,8 +264,21 @@ async def update_model(
     }
 
     async with async_session() as session:
+        lookup_name = original_name or model_name
+
+        # Block rename to an already-existing name
+        if name != lookup_name:
+            dup = (await session.execute(
+                _sel(ModelConfigRow).where(ModelConfigRow.name == name)
+            )).scalar_one_or_none()
+            if dup:
+                return RedirectResponse(
+                    url=f"/admin/models?error=Name+'{name}'+already+exists",
+                    status_code=303,
+                )
+
         result = await session.execute(
-            _sel(ModelConfigRow).where(ModelConfigRow.name == model_name)
+            _sel(ModelConfigRow).where(ModelConfigRow.name == lookup_name)
         )
         row = result.scalar_one_or_none()
         if row:
@@ -267,7 +292,19 @@ async def update_model(
             row.plan_tier = plan_tier
             row.cost_class = cost_class
             row.cost_weight = cost_weight
-            row.enabled = enabled
+            row.enabled = (enabled == "on")
+
+            # Propagate rename to group routing, logs, and traces
+            if name != lookup_name:
+                from app.stats.models import GroupTaskRouting, UsageLog, RequestLog
+                from sqlalchemy import update as _upd
+                for tbl in (GroupTaskRouting, UsageLog, RequestLog):
+                    await session.execute(
+                        _upd(tbl)
+                        .where(tbl.model_name == lookup_name)
+                        .values(model_name=name)
+                    )
+
             await session.commit()
 
     from app.models.registry import ModelRegistry

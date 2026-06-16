@@ -263,6 +263,7 @@ async def process_job_background(
                     session=sess,
                     request_id=unified_response.id,
                     model_name=normalized.model,
+                    model_id=decision.model_id,
                     provider=registry.get_provider_name(normalized.model),
                     status="error" if unified_response.error else "success",
                     task_type=normalized.task_type.value,
