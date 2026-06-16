@@ -27,6 +27,7 @@
             <div><label>Model ID *</label><input type="text" name="model_id" required placeholder="gpt-4o" style="width:100%;padding:6px 8px;font-size:0.82rem;"></div>
             <div><label>Description</label><input type="text" name="description" placeholder="Optional" style="width:100%;padding:6px 8px;font-size:0.82rem;"></div>
             <div><label>API Key (opt.)</label><input type="text" name="api_key" placeholder="Overrides env var" style="width:100%;padding:6px 8px;font-size:0.82rem;"></div>
+            <div><label>Base URL (opt.)</label><input type="text" name="base_url" placeholder="Provider default" style="width:100%;padding:6px 8px;font-size:0.82rem;"></div>
             <div><label>Plan Tier</label><select name="plan_tier" style="width:100%;padding:6px 8px;font-size:0.82rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);"><option>free</option><option selected>standard</option><option>premium</option></select></div>
             <div><label>Cost Class</label><select name="cost_class" style="width:100%;padding:6px 8px;font-size:0.82rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);"><option>cheapest</option><option selected>balanced</option><option>best</option></select></div>
             <div><label>Cost Weight</label><input type="number" name="cost_weight" value="1.0" step="0.1" min="0" style="width:100%;padding:6px 8px;font-size:0.82rem;"></div>
@@ -99,6 +100,7 @@
                     <div><label style="font-size:0.72rem;">Weight</label><input type="number" name="cost_weight" value="{{ config.cost_weight }}" step="0.1" style="width:100%;padding:4px 6px;font-size:0.75rem;"></div>
                     <div><label style="font-size:0.72rem;">Description</label><input type="text" name="description" value="{{ config.description or '' }}" style="width:100%;padding:4px 6px;font-size:0.75rem;"></div>
                     <div><label style="font-size:0.72rem;">API Key</label><input type="text" name="api_key" value="{{ db_row.api_key or '' if db_row else '' }}" placeholder="Overrides env var" style="width:100%;padding:4px 6px;font-size:0.75rem;"></div>
+                    <div><label style="font-size:0.72rem;">Base URL</label><input type="text" name="base_url" value="{{ db_row.base_url or '' if db_row else '' }}" placeholder="Provider default" style="width:100%;padding:4px 6px;font-size:0.75rem;"></div>
                 </div>
                 <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
                     <label style="font-size:0.72rem;"><input type="checkbox" name="text_input" {% if config.supports_text_input %}checked{% endif %}> Text In</label>

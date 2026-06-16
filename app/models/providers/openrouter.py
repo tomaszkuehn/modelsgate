@@ -12,6 +12,7 @@ from openai import AsyncOpenAI
 
 from app.config import settings
 from app.models.base import BaseModelProvider, ModelConfig
+from app.logs.provider_logger import log_outgoing_request
 from app.api.schemas import (
     NormalizedTaskRequest,
     UnifiedResponse,
@@ -74,6 +75,9 @@ class OpenRouterProvider(BaseModelProvider):
                 if params.top_p is not None:
                     kwargs["top_p"] = params.top_p
 
+            log_outgoing_request("openrouter", self.config.model_id,
+                OPENROUTER_BASE_URL + "/chat/completions",
+                messages, self.config.api_key or settings.openrouter_api_key, kwargs)
             response = await self.client.chat.completions.create(**kwargs)
 
             choice = response.choices[0]

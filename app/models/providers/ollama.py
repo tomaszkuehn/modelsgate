@@ -8,6 +8,7 @@ import httpx
 
 from app.config import settings
 from app.models.base import BaseModelProvider, ModelConfig
+from app.logs.provider_logger import log_outgoing_request
 from app.api.schemas import (
     NormalizedTaskRequest,
     UnifiedResponse,
@@ -54,6 +55,9 @@ class OllamaProvider(BaseModelProvider):
                 if params.top_p is not None:
                     payload["options"]["top_p"] = params.top_p
 
+            log_outgoing_request("ollama", self.config.model_id,
+                f"{self.base_url}/api/generate",
+                payload, "")
             async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.post(
                     f"{self.base_url}/api/generate",

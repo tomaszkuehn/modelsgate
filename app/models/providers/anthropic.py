@@ -7,6 +7,7 @@ from anthropic import AsyncAnthropic
 
 from app.config import settings
 from app.models.base import BaseModelProvider, ModelConfig
+from app.logs.provider_logger import log_outgoing_request
 from app.api.schemas import (
     NormalizedTaskRequest,
     UnifiedResponse,
@@ -83,6 +84,9 @@ class AnthropicProvider(BaseModelProvider):
                 if params.stop:
                     kwargs["stop_sequences"] = params.stop
 
+            log_outgoing_request("anthropic", self.config.model_id,
+                "https://api.anthropic.com/v1/messages",
+                kwargs["messages"], self.config.api_key or settings.anthropic_api_key, kwargs)
             response = await self.client.messages.create(**kwargs)
 
             content: List[ContentBlock] = []

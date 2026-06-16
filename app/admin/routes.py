@@ -157,6 +157,7 @@ async def create_model(
     model_id: str = Form(...),
     description: str = Form(""),
     api_key: str = Form(""),
+    base_url: str = Form(""),
     plan_tier: str = Form("standard"),
     cost_class: str = Form("balanced"),
     cost_weight: float = Form(1.0),
@@ -189,6 +190,7 @@ async def create_model(
             name=name, provider=provider, model_id=model_id,
             description=description or None,
             api_key=api_key or None,
+            base_url=base_url or None,
             capabilities_json=json.dumps(caps),
             plan_tier=plan_tier, cost_class=cost_class,
             cost_weight=cost_weight, enabled=True,
@@ -215,6 +217,7 @@ async def update_model(
     model_id: str = Form(...),
     description: str = Form(""),
     api_key: str = Form(""),
+    base_url: str = Form(""),
     plan_tier: str = Form("standard"),
     cost_class: str = Form("balanced"),
     cost_weight: float = Form(1.0),
@@ -255,6 +258,7 @@ async def update_model(
             row.model_id = model_id
             row.description = description or None
             row.api_key = api_key or None
+            row.base_url = base_url or None
             row.capabilities_json = json.dumps(caps)
             row.plan_tier = plan_tier
             row.cost_class = cost_class
@@ -263,7 +267,7 @@ async def update_model(
             await session.commit()
 
     from app.models.registry import ModelRegistry
-    ModelRegistry().reload_from_db()
+    await ModelRegistry().reload_from_db()
     registry = ModelRegistry()
     request.app.state.router.update_configs(registry.get_all_configs())
 
@@ -314,7 +318,7 @@ async def delete_model(
             await session.commit()
 
     from app.models.registry import ModelRegistry
-    ModelRegistry().reload_from_db()
+    await ModelRegistry().reload_from_db()
     registry = ModelRegistry()
     request.app.state.router.update_configs(registry.get_all_configs())
 

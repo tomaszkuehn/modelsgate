@@ -19,6 +19,9 @@
         <div class="form-group" style="margin-bottom:0;">
             <label>Select Group</label>
             <select id="group-select" name="group_id" style="padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:0.9rem;min-width:220px;">
+                {% if not groups %}
+                <option value="">— no groups —</option>
+                {% endif %}
                 {% for g in groups %}
                 <option value="{{ g.id }}" {% if selected_group_id == g.id %}selected{% endif %}>{{ g.group_key }} ({{ g.name }})</option>
                 {% endfor %}
@@ -67,6 +70,10 @@
         </div>
     </form>
 </div>
+{% else %}
+<div class="card">
+    <div class="empty-state">No group selected. Choose a group above to configure task→model assignments.</div>
+</div>
 {% endif %}
 {% endblock %}
 
@@ -92,10 +99,11 @@
     // On page load: if URL has no explicit group_id, redirect to last used
     const urlParams = new URLSearchParams(window.location.search);
     const currentGroupId = urlParams.get('group_id');
+    const selectedId = groupSelect.value;
     const lastGroupId = localStorage.getItem(STORAGE_KEY);
 
-    if (!currentGroupId && lastGroupId) {
-        // No group in URL — redirect to last used group
+    if (!currentGroupId && lastGroupId && lastGroupId !== selectedId) {
+        // No group in URL — redirect to last used group (only if different)
         window.location.search = '?group_id=' + lastGroupId;
         return;
     }
@@ -106,10 +114,8 @@
         groupForm.submit();
     });
 
-    // Also store the initial group
-    if (currentGroupId) {
-        localStorage.setItem(STORAGE_KEY, currentGroupId);
-    }
+    // Store the selected group for next visit
+    localStorage.setItem(STORAGE_KEY, selectedId);
 })();
 
 // ── Blink save button when any assignment is modified ──────────────────

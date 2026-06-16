@@ -7,6 +7,7 @@ import google.generativeai as genai
 
 from app.config import settings
 from app.models.base import BaseModelProvider, ModelConfig
+from app.logs.provider_logger import log_outgoing_request
 from app.api.schemas import (
     NormalizedTaskRequest,
     UnifiedResponse,
@@ -56,6 +57,9 @@ class GeminiProvider(BaseModelProvider):
                 if params.top_p is not None:
                     generation_config["top_p"] = params.top_p
 
+            log_outgoing_request("gemini", self.config.model_id,
+                f"https://generativelanguage.googleapis.com/v1beta/models/{self.config.model_id}:generateContent",
+                contents, self.config.api_key or settings.gemini_api_key, generation_config)
             response = await self.model.generate_content_async(
                 contents,
                 generation_config=generation_config if generation_config else None,

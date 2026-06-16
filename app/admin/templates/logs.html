@@ -10,16 +10,24 @@
 </div>
 
 <div class="card">
-    <div class="card-header"><h2>Recent Traces (newest first)</h2></div>
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <h2>Recent Traces (newest first)</h2>
+        {% if traces %}
+        <div>
+            <button onclick="document.querySelectorAll('.trace-details').forEach(d => d.open = true)" class="btn btn-sm" style="margin-right:4px;">Expand All</button>
+            <button onclick="document.querySelectorAll('.trace-details').forEach(d => d.open = false)" class="btn btn-sm">Collapse All</button>
+        </div>
+        {% endif %}
+    </div>
     <p style="color:var(--text-muted);font-size:0.8rem;margin-bottom:12px;">
-        Full pipeline: decrypted request → provider-specific format → response. FIFO-capped at {{ max_entries }} entries.
+        Click a log entry header to expand its full pipeline: decrypted request → provider format → response.
     </p>
 
     {% if traces %}
     {% for t in traces %}
-    <div style="margin-bottom:16px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
-        <!-- Header -->
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--surface2);font-size:0.82rem;">
+    <details class="trace-details" style="margin-bottom:12px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+        <!-- Header (always visible, click to expand) -->
+        <summary style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);font-size:0.82rem;cursor:pointer;list-style:none;user-select:none;">
             <span style="font-size:0.7rem;color:var(--text-muted);">Client:</span>
             {% if t.client_id %}<code style="font-size:0.75rem;color:var(--primary);">{{ t.client_id }}</code>{% else %}<span style="color:var(--text-muted);font-size:0.75rem;">—</span>{% endif %}
             <span style="color:var(--border);">|</span>
@@ -31,38 +39,51 @@
             <span style="color:var(--text-muted);font-size:0.75rem;">({{ t.provider or '—' }})</span>
             {% if t.api_key_prefix %}<code style="font-size:0.7rem;color:var(--text-muted);" title="API key prefix">{{ t.api_key_prefix }}…</code>{% endif %}
             <span style="margin-left:auto;font-size:0.72rem;color:var(--text-muted);">{{ t.created_at[:19] if t.created_at else '—' }}</span>
-        </div>
+            <span class="toggle-arrow" style="font-size:0.7rem;color:var(--text-muted);min-width:14px;">▶</span>
+        </summary>
 
-        <!-- Body: three columns -->
+        <!-- Body (visible when expanded) — full three-column JSON -->
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);font-size:0.75rem;">
             <!-- Original -->
-            <div style="background:var(--bg);padding:8px;">
-                <div style="color:var(--primary);font-weight:600;margin-bottom:4px;font-size:0.72rem;">Original (Unified)</div>
-                <pre style="margin:0;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;color:var(--text-muted);font-size:0.7rem;">{{ t.original_json | truncate(2000) }}</pre>
+            <div style="background:var(--bg);padding:10px;">
+                <div style="color:var(--primary);font-weight:600;margin-bottom:4px;font-size:0.72rem;">Original (Unified Request)</div>
+                <pre style="margin:0;white-space:pre-wrap;word-break:break-all;max-height:500px;overflow-y:auto;color:var(--text);font-size:0.7rem;line-height:1.4;">{{ t.original_json }}</pre>
             </div>
             <!-- Converted -->
-            <div style="background:var(--bg);padding:8px;">
-                <div style="color:var(--warning);font-weight:600;margin-bottom:4px;font-size:0.72rem;">Converted (Provider)</div>
+            <div style="background:var(--bg);padding:10px;">
+                <div style="color:var(--warning);font-weight:600;margin-bottom:4px;font-size:0.72rem;">Converted (Provider Format)</div>
                 {% if t.converted_json %}
-                <pre style="margin:0;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;color:var(--text-muted);font-size:0.7rem;">{{ t.converted_json | truncate(2000) }}</pre>
+                <pre style="margin:0;white-space:pre-wrap;word-break:break-all;max-height:500px;overflow-y:auto;color:var(--text);font-size:0.7rem;line-height:1.4;">{{ t.converted_json }}</pre>
                 {% else %}
-                <div style="color:var(--text-muted);font-style:italic;">No converted format captured</div>
+                <div style="color:var(--text-muted);font-style:italic;padding:8px;">No converted format captured</div>
                 {% endif %}
             </div>
             <!-- Response -->
-            <div style="background:var(--bg);padding:8px;">
+            <div style="background:var(--bg);padding:10px;">
                 <div style="color:var(--success);font-weight:600;margin-bottom:4px;font-size:0.72rem;">Response</div>
                 {% if t.response_json %}
-                <pre style="margin:0;white-space:pre-wrap;word-break:break-all;max-height:300px;overflow-y:auto;color:var(--text-muted);font-size:0.7rem;">{{ t.response_json | truncate(2000) }}</pre>
+                <pre style="margin:0;white-space:pre-wrap;word-break:break-all;max-height:500px;overflow-y:auto;color:var(--text);font-size:0.7rem;line-height:1.4;">{{ t.response_json }}</pre>
                 {% else %}
-                <div style="color:var(--text-muted);font-style:italic;">No response captured</div>
+                <div style="color:var(--text-muted);font-style:italic;padding:8px;">No response captured</div>
                 {% endif %}
             </div>
         </div>
-    </div>
+    </details>
     {% endfor %}
     {% else %}
     <div class="empty-state">No traces recorded yet. Make an API request to see the pipeline log.</div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+/* Rotate arrow when details is open */
+details.trace-details[open] .toggle-arrow {
+    transform: rotate(90deg);
+    display: inline-block;
+}
+/* Remove default webkit marker */
+summary::-webkit-details-marker { display: none; }
+</style>
 {% endblock %}

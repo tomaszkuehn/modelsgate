@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     openrouter_api_key: str = ""
     alibaba_api_key: str = ""
+    dashscope_api_key: str = ""
     deepseek_api_key: str = ""
     ollama_base_url: str = "http://localhost:11434"
 

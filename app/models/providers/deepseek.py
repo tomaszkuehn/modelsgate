@@ -12,6 +12,7 @@ from openai import AsyncOpenAI
 
 from app.config import settings
 from app.models.base import BaseModelProvider, ModelConfig
+from app.logs.provider_logger import log_outgoing_request
 from app.api.schemas import (
     NormalizedTaskRequest,
     UnifiedResponse,
@@ -72,6 +73,9 @@ class DeepseekProvider(BaseModelProvider):
                 if params.stop:
                     kwargs["stop"] = params.stop
 
+            log_outgoing_request("deepseek", self.config.model_id,
+                DEEPSEEK_BASE_URL + "/chat/completions",
+                messages, self.config.api_key or settings.deepseek_api_key, kwargs)
             response = await client.chat.completions.create(**kwargs)
 
             choice = response.choices[0]

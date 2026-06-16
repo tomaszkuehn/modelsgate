@@ -8,6 +8,7 @@ from openai import AsyncOpenAI
 
 from app.config import settings
 from app.models.base import BaseModelProvider, ModelConfig
+from app.logs.provider_logger import log_outgoing_request
 from app.api.schemas import (
     NormalizedTaskRequest,
     UnifiedResponse,
@@ -46,6 +47,9 @@ class OpenAIProvider(BaseModelProvider):
                 if params.stop:
                     kwargs["stop"] = params.stop
 
+            log_outgoing_request("openai", self.config.model_id,
+                "https://api.openai.com/v1/chat/completions",
+                messages, self.config.api_key or settings.openai_api_key, kwargs)
             response = await self.client.chat.completions.create(**kwargs)
 
             choice = response.choices[0]

@@ -385,6 +385,10 @@ class ModelConfigRow(Base):
         String(256), nullable=True,
         comment="Per-model API key override. Falls back to env var if empty."
     )
+    base_url: Mapped[str | None] = mapped_column(
+        String(512), nullable=True,
+        comment="Per-model base URL override. Uses provider default if empty."
+    )
 
     # Tiering
     plan_tier: Mapped[str] = mapped_column(String(16), default="standard")

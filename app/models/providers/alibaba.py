@@ -1,17 +1,18 @@
-"""Alibaba DashScope provider — Qwen models via OpenAI-compatible endpoint.
+"""Alibaba DashScope provider — Qwen models via native multimodal generation API.
 
 API docs: https://help.aliyun.com/zh/model-studio/
-Base URL: https://dashscope.aliyuncs.com/compatible-mode/v1
-Auth: API key in Authorization header
+Base URL: https://dashscope.aliyuncs.com/api/v1
+Auth: API key in Authorization: Bearer header
 """
 
 import logging
 from typing import List
 
-from openai import AsyncOpenAI
+import httpx
 
 from app.config import settings
 from app.models.base import BaseModelProvider, ModelConfig
+from app.logs.provider_logger import log_outgoing_request
 from app.api.schemas import (
     NormalizedTaskRequest,
     UnifiedResponse,
@@ -24,63 +25,102 @@ from app.api.schemas import (
 
 logger = logging.getLogger(__name__)
 
-ALIBABA_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+# Native DashScope multimodal generation endpoint (China region)
+DASHSCOPE_API_BASE = "https://dashscope.aliyuncs.com/api/v1"
+DASHSCOPE_GENERATION_PATH = "/services/aigc/multimodal-generation/generation"
 
 
 class AlibabaProvider(BaseModelProvider):
     """Provider for Alibaba DashScope models (Qwen series).
 
-    Uses the OpenAI-compatible /chat/completions endpoint.
+    Uses the native DashScope multimodal generation API.
     Supports Qwen text models and vision-capable Qwen-VL variants.
     """
 
     def __init__(self, config: ModelConfig):
         super().__init__(config)
-        api_key = config.api_key or settings.alibaba_api_key
-        self.client = AsyncOpenAI(
-            api_key=api_key,
-            base_url=ALIBABA_BASE_URL,
-        )
+        self.api_key = config.api_key or settings.alibaba_api_key or settings.dashscope_api_key
+        # Derive native API base from configured base_url, or use default
+        if config.base_url:
+            # configured URL may point to compatible-mode or native; derive native base
+            raw = config.base_url.rstrip("/")
+            if "/compatible-mode" in raw:
+                self.api_base = raw.split("/compatible-mode")[0] + "/api/v1"
+            elif raw.endswith("/api/v1"):
+                self.api_base = raw
+            else:
+                self.api_base = raw + "/api/v1"
+        else:
+            self.api_base = DASHSCOPE_API_BASE
 
     async def _generate(self, request: NormalizedTaskRequest) -> UnifiedResponse:
-        if not (self.config.api_key or settings.alibaba_api_key):
+        if not self.api_key:
             return self.make_response(
                 task_type=request.task_type,
                 model=request.model,
                 error=(
-                    "Alibaba API key not configured. Set ALIBABA_API_KEY in .env "
+                    "Alibaba API key not configured. Set DASHSCOPE_API_KEY or ALIBABA_API_KEY in .env "
                     "or add an api_key on the model in Admin → Models."
                 ),
             )
         try:
-            messages = self._convert_messages(request.messages)
-
-            kwargs = {"model": self.config.model_id, "messages": messages}
-
-            params = request.parameters
+            # Build native DashScope multimodal request body
+            msgs = self._build_dashscope_messages(request.messages)
+            body = {
+                "model": self.config.model_id,
+                "input": {"messages": msgs},
+            }
+            params = {}
+            if request.parameters:
+                if request.parameters.temperature is not None:
+                    params["temperature"] = request.parameters.temperature
+                if request.parameters.max_tokens is not None:
+                    params["max_tokens"] = request.parameters.max_tokens
+                if request.parameters.top_p is not None:
+                    params["top_p"] = request.parameters.top_p
             if params:
-                if params.max_tokens is not None:
-                    kwargs["max_tokens"] = params.max_tokens
-                if params.temperature is not None:
-                    kwargs["temperature"] = params.temperature
-                if params.top_p is not None:
-                    kwargs["top_p"] = params.top_p
-                if params.stop:
-                    kwargs["stop"] = params.stop
+                body["parameters"] = params
 
-            response = await self.client.chat.completions.create(**kwargs)
+            destination = f"{self.api_base}{DASHSCOPE_GENERATION_PATH}"
+            log_outgoing_request("alibaba", self.config.model_id,
+                destination, msgs, self.api_key, params if params else None)
 
-            choice = response.choices[0]
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                resp = await client.post(
+                    destination,
+                    json=body,
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+
+            # Parse DashScope response
             content: List[ContentBlock] = []
-            if choice.message.content:
-                content.append(TextContent(text=choice.message.content))
+            output = data.get("output", {})
+            choices = output.get("choices", [])
+            if choices:
+                msg = choices[0].get("message", {})
+                msg_content = msg.get("content", [])
+                for part in msg_content if isinstance(msg_content, list) else [msg_content]:
+                    if isinstance(part, dict):
+                        if "text" in part:
+                            content.append(TextContent(text=part["text"]))
+                        elif "image" in part:
+                            # image URLs or base64 from response
+                            content.append(ImageContent(image=part["image"]))
+                    elif isinstance(part, str):
+                        content.append(TextContent(text=part))
 
             usage = None
-            if response.usage:
+            if "usage" in data:
+                u = data["usage"]
                 usage = UsageInfo(
-                    prompt_tokens=response.usage.prompt_tokens,
-                    completion_tokens=response.usage.completion_tokens,
-                    total_tokens=response.usage.total_tokens,
+                    prompt_tokens=u.get("input_tokens", 0),
+                    completion_tokens=u.get("output_tokens", 0),
+                    total_tokens=u.get("total_tokens", u.get("input_tokens", 0) + u.get("output_tokens", 0)),
                 )
 
             return UnifiedResponse(
@@ -90,6 +130,18 @@ class AlibabaProvider(BaseModelProvider):
                 usage=usage,
             )
 
+        except httpx.HTTPStatusError as e:
+            detail = ""
+            try:
+                detail = e.response.json()
+            except Exception:
+                detail = e.response.text
+            logger.error(f"Alibaba provider error: {e.response.status_code} — {detail}")
+            return self.make_response(
+                task_type=request.task_type,
+                model=request.model,
+                error=f"Alibaba error: {e.response.status_code} — {detail}",
+            )
         except Exception as e:
             logger.error(f"Alibaba provider error: {e}")
             return self.make_response(
@@ -98,29 +150,32 @@ class AlibabaProvider(BaseModelProvider):
                 error=f"Alibaba error: {str(e)}",
             )
 
-    def _convert_messages(self, messages: List[Message]) -> List[dict]:
-        """Convert unified messages to OpenAI-compatible format."""
-        openai_messages = []
+    def _build_dashscope_messages(self, messages: List[Message]) -> List[dict]:
+        """Convert unified messages to native DashScope multimodal format.
+
+        DashScope content is a flat array of {"image": "..."} and {"text": "..."}
+        objects (not the OpenAI nested type/image_url format).
+        """
+        result = []
         for msg in messages:
-            texts = self.extract_texts(msg.content)
-            images = self.extract_images(msg.content)
+            content_parts = []
+            for block in msg.content:
+                if isinstance(block, TextContent) and block.text.strip():
+                    content_parts.append({"text": block.text})
+                elif isinstance(block, ImageContent):
+                    image_url = block.image
+                    if not image_url.startswith(("http://", "https://", "data:")):
+                        image_url = f"data:image/png;base64,{image_url}"
+                    content_parts.append({"image": image_url})
 
-            if images:
-                content_parts = []
-                for block in msg.content:
-                    if isinstance(block, TextContent):
-                        content_parts.append({"type": "text", "text": block.text})
-                    elif isinstance(block, ImageContent):
-                        image_url = block.image
-                        if not image_url.startswith("http"):
-                            image_url = f"data:image/png;base64,{image_url}"
-                        content_parts.append({
-                            "type": "image_url",
-                            "image_url": {"url": image_url, "detail": "auto"},
-                        })
-                openai_messages.append({"role": msg.role, "content": content_parts})
+            if not content_parts:
+                continue
+
+            # If only text and no images, use simple string content
+            text_only = all("text" in p for p in content_parts)
+            if text_only and len(content_parts) == 1:
+                result.append({"role": msg.role, "content": content_parts[0]["text"]})
             else:
-                combined = "\n".join(texts) if texts else ""
-                openai_messages.append({"role": msg.role, "content": combined})
+                result.append({"role": msg.role, "content": content_parts})
 
-        return openai_messages
+        return result
