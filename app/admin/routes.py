@@ -96,6 +96,9 @@ async def dashboard(
         )
         distinct_tasks = await get_distinct_task_types(session)
 
+        from app.stats.tracker import get_client_stats
+        client_stats = await get_client_stats(session)
+
     from app.stats.memory import memory_stats
     mem = memory_stats()
 
@@ -111,6 +114,7 @@ async def dashboard(
             "distinct_tasks": distinct_tasks,
             "selected_task_type": task_type,
             "selected_conversation_id": conversation_id,
+            "client_stats": client_stats,
             "mem": mem,
         },
     )
@@ -602,8 +606,8 @@ async def clients_page(
 ):
     """Manage API clients."""
     from app.database import async_session
-    from app.stats.models import Client, ClientGroup, RoutingPolicy
-    from sqlalchemy import select as _sel
+    from app.stats.models import Client, ClientGroup, RoutingPolicy, UsageLog
+    from sqlalchemy import select as _sel, func, case
 
     async with async_session() as session:
         from app.stats.models import ClientGroup
@@ -615,8 +619,23 @@ async def clients_page(
             _sel(ClientGroup).order_by(ClientGroup.group_key)
         )
         groups = groups_result.scalars().all()
-        # Build group lookup
         group_map = {g.id: g for g in groups}
+
+        # Per-client usage stats (excluding registrations)
+        usage_q = (
+            _sel(
+                UsageLog.client_id,
+                func.count(UsageLog.id).label("total"),
+                func.sum(case((UsageLog.status == "error", 1), else_=0)).label("errors"),
+            )
+            .where(
+                UsageLog.client_id.isnot(None),
+                UsageLog.task_type != "register",
+            )
+            .group_by(UsageLog.client_id)
+        )
+        usage_result = await session.execute(usage_q)
+        usage_by_client = {row.client_id: {"total": row.total, "errors": row.errors or 0} for row in usage_result}
 
     return templates.TemplateResponse(
         "clients.html",
@@ -640,6 +659,8 @@ async def clients_page(
                         c.registered_at.strftime("%Y-%m-%d %H:%M")
                         if c.registered_at else "—"
                     ),
+                    "requests": usage_by_client.get(c.client_key, {}).get("total", 0),
+                    "errors": usage_by_client.get(c.client_key, {}).get("errors", 0),
                 }
                 for c in clients
             ],

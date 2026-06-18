@@ -78,6 +78,27 @@
 </div>
 {% endif %}
 
+{% if client_stats %}
+<div class="card">
+    <div class="card-header"><h2>Usage by Client</h2></div>
+    <table style="font-size:0.8rem;">
+        <thead>
+            <tr><th>Client ID</th><th>Total Requests</th><th>Success</th><th>Failed</th></tr>
+        </thead>
+        <tbody>
+            {% for c in client_stats %}
+            <tr {% if c.errors %}style="background:rgba(255,50,50,0.05);"{% endif %}>
+                <td style="font-family:monospace;font-size:0.75rem;">{{ c.client_id }}</td>
+                <td>{{ c.total }}</td>
+                <td style="color:var(--success);">{{ c.success }}</td>
+                <td style="color:{% if c.errors %}var(--danger){% else %}var(--text-muted){% endif %};">{{ c.errors }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
 <div class="card">
     <div class="card-header"><h2>Requests Per Day (Last 7 Days)</h2></div>
     <div class="chart-container">

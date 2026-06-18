@@ -22,7 +22,7 @@
     {% if clients %}
     <table style="font-size:0.82rem;">
         <thead>
-            <tr><th>Client ID</th><th>Group</th><th>Plan</th><th>Tokens Today</th><th>Tokens Month</th><th>Registered</th><th>Status</th><th>Actions</th></tr>
+            <tr><th>Client ID</th><th>Group</th><th>Plan</th><th>Requests</th><th>Errors</th><th>Tokens Today</th><th>Tokens Month</th><th>Registered</th><th>Status</th><th>Actions</th></tr>
         </thead>
         <tbody>
             {% for c in clients %}
@@ -41,6 +41,8 @@
                 <td>
                     <span class="badge {% if c.plan == 'free' %}badge-enabled{% else %}badge-error{% endif %}">{{ c.plan }}</span>
                 </td>
+                <td>{{ c.requests }}</td>
+                <td style="color:{% if c.errors %}var(--danger){% else %}var(--text-muted){% endif %};">{{ c.errors }}</td>
                 <td>{{ c.tokens_today | int }}</td>
                 <td>{{ c.tokens_month | int }}</td>
                 <td style="font-size:0.75rem;">{{ c.registered_at }}</td>

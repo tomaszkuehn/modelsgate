@@ -2,7 +2,7 @@
 
 Unified API gateway for AI model providers with **application-layer encryption**. One endpoint, any content type, any provider — works securely over plain HTTP.
 
-[![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://python.org)
+[![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://python.org) [![Python 3.14](https://img.shields.io/badge/python-3.14-tested-green.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/fastapi-0.111-009688.svg)](https://fastapi.tiangolo.com)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED.svg)](https://docker.com)
 
@@ -23,7 +23,7 @@ This backend solves all four: **task-based routing**, **built-in encryption** (R
 
 ### Prerequisites
 
-- Python 3.12+ (or Docker)
+- Python 3.12+ (tested up to 3.14; see [VPS.md](VPS.md#python-314-compatibility-notes) for 3.14 notes) or Docker
 - At least one AI provider API key
 
 ### 1. Clone & Configure
@@ -48,7 +48,8 @@ docker compose up --build
 ### 3. Verify
 
 ```bash
-curl http://localhost:8000/                           # Health check
+curl http://localhost:8000/                           # Health check (direct)
+curl http://localhost/                                # Health check (via nginx)
 curl http://localhost:8000/api/v1/public-key          # RSA public key
 curl http://localhost:8000/api/v1/register            # Get a client ID
 python test_client.py --task chat_with_context        # Test request
@@ -280,10 +281,23 @@ python test_client.py --task chat_with_context
 
 ## Deployment
 
+### Docker
+
 ```bash
 docker compose up --build -d       # Production
 docker compose logs -f             # View logs
 ```
+
+### Bare-metal (venv + systemd + nginx)
+
+Full step-by-step guide for deploying on a VPS without Docker:
+
+➡️ **[VPS.md](VPS.md)** — setup, updates, troubleshooting, HTTPS, backup.
+
+Currently running on:
+- **URL:** `http://92.113.151.67`
+- **OS:** Ubuntu 26.04 LTS, Python 3.14.4
+- **Path:** `/opt/ai-backend` | **Service:** `ai-backend`
 
 ---
 

@@ -384,3 +384,32 @@ async def get_conversation_requests(
         }
         for log in logs
     ]
+
+
+async def get_client_stats(session: AsyncSession) -> List[dict]:
+    """Get per-client request counts (excluding registrations) with failure breakdown."""
+    from sqlalchemy import case
+
+    q = (
+        select(
+            UsageLog.client_id,
+            func.count(UsageLog.id).label("total"),
+            func.sum(case((UsageLog.status == "error", 1), else_=0)).label("errors"),
+        )
+        .where(
+            UsageLog.client_id.isnot(None),
+            UsageLog.task_type != "register",
+        )
+        .group_by(UsageLog.client_id)
+        .order_by(func.count(UsageLog.id).desc())
+    )
+    result = await session.execute(q)
+    return [
+        {
+            "client_id": row.client_id,
+            "total": row.total,
+            "errors": row.errors or 0,
+            "success": (row.total - (row.errors or 0)),
+        }
+        for row in result
+    ]
