@@ -1,12 +1,17 @@
 """Admin panel routes — dashboard, model management, settings."""
 
-from fastapi import APIRouter, Request, Form, Depends
+from fastapi import APIRouter, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
 from app.config import settings
-from app.admin.auth import authenticate_user, get_current_admin, hash_password
+from app.admin.auth import (
+    authenticate_user, get_current_admin, hash_password,
+    check_ip_rate_limit, check_account_locked,
+    record_failed_attempt, reset_failed_attempts,
+    _rate_limiter,
+)
 from app.stats.tracker import (
     get_stats_summary,
     get_usage_by_model,
@@ -37,19 +42,49 @@ async def login(
     username: str = Form(...),
     password: str = Form(...),
 ):
-    """Authenticate admin user."""
+    """Authenticate admin user with brute-force protection."""
     from app.database import async_session
-    async with async_session() as session:
-        user = await authenticate_user(session, username, password)
 
-    if user is None:
+    client_ip = request.client.host if request.client else "unknown"
+
+    # 1 — IP-level rate limit (don't even hit the DB if flooding)
+    try:
+        check_ip_rate_limit(client_ip)
+    except HTTPException as e:
         return templates.TemplateResponse(
             "login.html",
-            {"request": request, "error": "Invalid username or password"},
-            status_code=401,
+            {"request": request, "error": e.detail},
+            status_code=429,
         )
 
-    request.session["admin_username"] = user.username
+    async with async_session() as session:
+        # 2 — Check account lockout
+        try:
+            user = await check_account_locked(session, username)
+        except HTTPException as e:
+            return templates.TemplateResponse(
+                "login.html",
+                {"request": request, "error": e.detail},
+                status_code=429,
+            )
+
+        # 3 — Verify password
+        authed = await authenticate_user(session, username, password)
+
+        if authed is None:
+            # Record the failed attempt for both existing and non-existent users
+            await record_failed_attempt(session, username)
+            _rate_limiter.record(client_ip)
+            return templates.TemplateResponse(
+                "login.html",
+                {"request": request, "error": "Invalid username or password"},
+                status_code=401,
+            )
+
+        # 4 — Success — reset counters
+        await reset_failed_attempts(session, authed)
+
+    request.session["admin_username"] = authed.username
     return RedirectResponse(url="/admin/dashboard", status_code=303)
 
 
@@ -1126,7 +1161,7 @@ async def playground_send(
     decrypted = None
     async with httpx.AsyncClient() as client:
         api_resp = await client.post(
-            "http://127.0.0.1:8000/api/v1/request",
+            f"{settings.public_url}/api/v1/request",
             json=envelope,
             timeout=120.0,
         )

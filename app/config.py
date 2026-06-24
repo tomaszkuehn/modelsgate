@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     # Server
     host: str = "0.0.0.0"
     port: int = 8000
+    public_url: str = "http://localhost:8000"  # used for outbound referer headers, etc.
 
     # Paths
     data_dir: str = "./data"

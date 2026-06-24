@@ -104,6 +104,9 @@ SESSION_SECRET=<random-64-character-hex-string>
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=<strong-password>
 
+# Public URL (used for outbound referer headers, etc.)
+PUBLIC_URL=https://modelsgate.eu
+
 # At least one provider API key
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
@@ -181,8 +184,8 @@ sudo nano /etc/nginx/sites-available/ai-backend
 
 ```nginx
 server {
-    listen 80 default_server;
-    server_name 92.113.151.67;    # Replace with your IP or domain
+    listen 80;
+    server_name modelsgate.eu;
 
     client_max_body_size 100M;
 
@@ -240,7 +243,7 @@ sudo journalctl -u ai-backend -f
 curl -s http://localhost/admin/login | head -5
 ```
 
-Visit `http://92.113.151.67/admin/login` in a browser and log in with the credentials set in `.env`.
+Visit `https://modelsgate.eu/admin/login` in a browser and log in with the credentials set in `.env`.
 
 ---
 
@@ -356,6 +359,7 @@ sudo systemctl reload nginx  # apply without downtime
 |----------|-------------|---------|
 | `HOST` | Bind address | `0.0.0.0` |
 | `PORT` | Bind port | `8000` |
+| `PUBLIC_URL` | Public-facing URL (used for outbound referer headers) | `http://localhost:8000` |
 | `DATA_DIR` | Data directory | `./data` |
 | `MODELS_CONFIG_PATH` | Models config path | `./models_config.yaml` |
 | `ADMIN_USERNAME` | Admin panel username | `admin` |
@@ -431,44 +435,66 @@ sudo systemctl start ai-backend
 
 ## HTTPS / Domain Setup
 
-When you have a domain pointed to `92.113.151.67`:
+The production server runs at **https://modelsgate.eu** with HTTPS enabled via Let's Encrypt.
 
-### 1. Update Nginx config
+### Domain DNS
 
-```bash
-sudo nano /etc/nginx/sites-available/ai-backend
-```
+An A record points `modelsgate.eu` to `92.113.151.67`.
 
-Change `server_name` to your domain:
+### Nginx config (HTTPS)
+
+Certbot auto-configured SSL. The effective nginx config:
 
 ```nginx
 server {
-    listen 80 default_server;
-    server_name ai.yourdomain.com;    # ← change this
-    # ... rest unchanged
+    listen 80;
+    server_name modelsgate.eu;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name modelsgate.eu;
+
+    ssl_certificate     /etc/letsencrypt/live/modelsgate.eu/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/modelsgate.eu/privkey.pem;
+
+    client_max_body_size 100M;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+    }
 }
 ```
 
+### Certificate renewal
+
+Auto-renewal is handled by a systemd timer (certbot sets this up automatically):
+
 ```bash
+sudo certbot renew --dry-run   # test renewal
+sudo systemctl status certbot.timer
+```
+
+### Setting up a new domain
+
+When pointing a new domain to this server:
+
+```bash
+# 1. Update nginx server_name
+sudo nano /etc/nginx/sites-available/ai-backend
+
+# 2. Get SSL certificate
+sudo certbot --nginx -d yourdomain.com
+
+# 3. Reload
 sudo nginx -t && sudo systemctl reload nginx
-```
-
-### 2. Get SSL certificate
-
-```bash
-sudo certbot --nginx -d ai.yourdomain.com
-```
-
-Certbot will:
-- Obtain a free Let's Encrypt certificate
-- Auto-configure HTTPS in your nginx config
-- Set up auto-renewal (verified with `sudo certbot renew --dry-run`)
-
-### 3. Verify HTTPS
-
-```bash
-curl -s https://ai.yourdomain.com/
-# → {"status":"ok",...}
 ```
 
 ---

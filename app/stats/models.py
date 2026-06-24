@@ -1,6 +1,7 @@
 """SQLAlchemy ORM models for usage statistics and admin users."""
 
 from datetime import datetime
+from typing import Optional
 
 from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean, JSON, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -112,6 +113,9 @@ class AdminUser(Base):
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(256), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_attempt_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self):
         return f"<AdminUser {self.username}>"

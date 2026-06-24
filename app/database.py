@@ -24,6 +24,24 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+    # Add columns added after initial deployment (SQLite doesn't ALTER via create_all)
+    async with engine.connect() as conn:
+        new_columns = {
+            "admin_users": [
+                ("failed_attempts", "INTEGER NOT NULL DEFAULT 0"),
+                ("locked_until", "DATETIME"),
+                ("last_attempt_at", "DATETIME"),
+            ],
+        }
+        for table, columns in new_columns.items():
+            for col_name, col_def in columns:
+                try:
+                    await conn.exec_driver_sql(
+                        f"ALTER TABLE {table} ADD COLUMN {col_name} {col_def}"
+                    )
+                except Exception:
+                    pass  # Column already exists — safe to ignore
+
 
 async def get_session() -> AsyncSession:  # type: ignore
     """Dependency that yields an async database session."""

@@ -1,7 +1,7 @@
 # AI Model Backend — API Reference
 
 **Version:** 1.0.0  
-**Base URL:** `http://<host>:8000`  
+**Base URL:** `https://modelsgate.eu` (production) or `http://localhost:8000` (local dev)  
 **Content-Type:** `application/json`
 
 ---
@@ -33,7 +33,7 @@ The AI Model Backend is a unified API gateway that provides a **single interface
 | **Task-based routing** | Clients specify *what they want to do* (`vision_describe`), not *which model to use*. The backend picks the best model. |
 | **Constrained routing** | Optional constraints on output type, plan tier, cost class, and provider preference steer model selection. |
 | **Unified schema** | One request/response format for text, image, and multi-image content |
-| **Application-layer encryption** | Full payload encryption works over plain HTTP — no TLS required |
+| **Application-layer encryption** | Full payload encryption — doubly secure with HTTPS in production |
 | **Provider agnostic** | Swap models without changing client code — the backend translates between formats |
 | **Usage tracking** | Every request is logged with token counts and response times |
 
@@ -1027,7 +1027,8 @@ curl http://localhost:8000/admin/dashboard -b cookies.txt
 ┌──────────────────────────────────────────────────────────────┐
 │                     API QUICK REFERENCE                       │
 ├──────────────────────────────────────────────────────────────┤
-│ Base URL:      http://<host>:8000                             │
+│ Base URL:      https://modelsgate.eu                        │
+│                (or http://localhost:8000 for local dev)      │
 │ Encryption:    RSA-2048 (OAEP+SHA256) + AES-256-GCM           │
 │ Content-Type:  application/json                               │
 ├──────────────────────────────────────────────────────────────┤
@@ -1063,7 +1064,7 @@ curl http://localhost:8000/admin/dashboard -b cookies.txt
 │   usage:      {prompt_tokens, completion_tokens, total}       │
 │   error:      null | "error message"                           │
 ├──────────────────────────────────────────────────────────────┤
-│ Admin:     http://<host>:8000/admin/login                     │
+│ Admin:     https://modelsgate.eu/admin/login                │
 │ Default:   admin / admin123                                    │
 └──────────────────────────────────────────────────────────────┘
 ```

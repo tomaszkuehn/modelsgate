@@ -61,7 +61,7 @@ class OpenRouterProvider(BaseModelProvider):
                 "messages": messages,
                 # OpenRouter-specific: optional headers for ranking
                 "extra_headers": {
-                    "HTTP-Referer": "http://localhost:8000",
+                    "HTTP-Referer": settings.public_url,
                     "X-Title": "AI Model Backend",
                 },
             }

@@ -295,7 +295,7 @@ Full step-by-step guide for deploying on a VPS without Docker:
 ➡️ **[VPS.md](VPS.md)** — setup, updates, troubleshooting, HTTPS, backup.
 
 Currently running on:
-- **URL:** `http://92.113.151.67`
+- **URL:** `https://modelsgate.eu`
 - **OS:** Ubuntu 26.04 LTS, Python 3.14.4
 - **Path:** `/opt/ai-backend` | **Service:** `ai-backend`
 
