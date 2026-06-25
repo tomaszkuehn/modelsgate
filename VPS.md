@@ -512,6 +512,10 @@ sudo systemctl start ai-backend
 
 This preserves your SQLite database, encryption keys, `.env`, and all code.
 
+### Database migrations (automatic)
+
+Schema changes — e.g. the `jobs.session_key` column added by the async-job decryptability fix — are applied **automatically on startup** by `init_db()`: it runs `create_all` for new tables and `ALTER TABLE … ADD COLUMN` (silently skipped if the column already exists) for any column added after initial deployment. A normal `aib-update` (`git pull` + restart) is therefore sufficient — there is **no manual SQL migration step**.
+
 ### What to back up regularly
 
 | Path | Contains |

@@ -32,6 +32,9 @@ async def init_db():
                 ("locked_until", "DATETIME"),
                 ("last_attempt_at", "DATETIME"),
             ],
+            "jobs": [
+                ("session_key", "BLOB"),
+            ],
         }
         for table, columns in new_columns.items():
             for col_name, col_def in columns:

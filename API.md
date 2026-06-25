@@ -274,6 +274,8 @@ POST /api/v1/jobs/{job_id}/cancel
 **Force async:** Set `"async_mode": true` on any request.  
 **Force sync:** Set `"async_mode": false` to override auto-async behavior.
 
+**Decryption contract — retain the session key.** The job-reference response from `POST /api/v1/request` **and** every `GET /api/v1/jobs/{job_id}` and `POST /api/v1/jobs/{job_id}/cancel` response use the same outer envelope as `/request` (`{encrypted_payload, nonce}`) and are AES-256-GCM sealed with the **same `session_key`** the client generated for the original request. The server persists that key on the job row so poll/cancel responses stay decryptable. **Keep the `session_key` for the life of the job** — it is the only key that decrypts any async response. (The JSON examples below show the *decrypted* payload.)
+
 **Sync Response (job reference):**
 ```json
 {
@@ -575,6 +577,8 @@ TaskRequest (image_edit, 1+ images + instructions)
   → finalize_image_edit()           # Counts images, builds edit_result metadata
   → UnifiedResponse with image blocks + edit_result
 ```
+
+Because `image_edit` is auto-async (see [4.4 Async Jobs](#44-async-jobs)), this workflow also runs in the **async job path** — `edit_options` are honored and `edit_result` is populated in the polled job's `result` field exactly as in a sync response.
 
 **Options (`edit_options`):**
 

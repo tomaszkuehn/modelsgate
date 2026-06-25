@@ -183,6 +183,7 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
                 task_type=task_req.task_type.value,
                 request_json=json.dumps(decrypted),
                 client_id=task_req.client_id,
+                session_key=session_key,
             )
             # Spawn background processing
             _asyncio.create_task(
@@ -193,22 +194,16 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
                     app_state=request.app.state,
                 )
             )
-            # Return job reference immediately
-            return EncryptedResponse(
-                encrypted_payload=encrypt_response(
-                    {
-                        "job_id": job_id,
-                        "status": "pending",
-                        "task_type": task_req.task_type.value,
-                        "message": "Job queued. Poll GET /api/v1/jobs/{job_id} for status.",
-                    },
-                    session_key,
-                )["encrypted_payload"],
-                nonce=encrypt_response(
-                    {"job_id": job_id, "status": "pending"},
-                    session_key,
-                )["nonce"],
-            )
+            # Return job reference immediately. Encrypt ONCE so the payload and
+            # nonce come from the same AES-GCM seal — a second encrypt_response
+            # call would mint a different nonce and make the envelope undecryptable.
+            pending_body = {
+                "job_id": job_id,
+                "status": "pending",
+                "task_type": task_req.task_type.value,
+                "message": "Job queued. Poll GET /api/v1/jobs/{job_id} for status.",
+            }
+            return EncryptedResponse(**encrypt_response(pending_body, session_key))
 
         # ── 2c. Policy enforcement ────────────────────────────────
         from app.policy.enforcer import PolicyEnforcer, PolicyViolationError
@@ -777,25 +772,29 @@ async def validate_client_id(session, client_id: Optional[str]) -> dict:
 async def get_job_status(job_id: str, request: Request):
     """Poll job status and retrieve result when complete.
 
-    Returns the job status, progress, and result (if completed).
-    Response is encrypted with the same scheme as /request.
+    Returns the job status, progress, and result (if completed). The response
+    is encrypted with the session key from the original /request (stored on the
+    job), so the client — which still holds that key — can decrypt it.
     """
-    from app.jobs.manager import get_job
+    import os as _os
+    from app.jobs.manager import get_job_orm, _job_to_dict
 
-    job = await get_job(job_id)
-    if job is None:
+    job_obj = await get_job_orm(job_id)
+    if job_obj is None:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
 
-    key_manager = request.app.state.key_manager
-    session_key = __import__("os").urandom(32)
-    encrypted = encrypt_response(job, session_key)
+    # Reuse the original request's session key; fall back to a random key for
+    # jobs created before this key was stored (undecryptable, but no worse than before).
+    session_key = job_obj.session_key or _os.urandom(32)
+    encrypted = encrypt_response(_job_to_dict(job_obj), session_key)
     return EncryptedResponse(**encrypted)
 
 
 @router.post("/jobs/{job_id}/cancel")
 async def cancel_job_endpoint(job_id: str, request: Request):
     """Cancel a pending or processing job."""
-    from app.jobs.manager import cancel_job
+    import os as _os
+    from app.jobs.manager import cancel_job, get_job_orm
 
     ok = await cancel_job(job_id)
     if not ok:
@@ -804,8 +803,10 @@ async def cancel_job_endpoint(job_id: str, request: Request):
             detail=f"Job '{job_id}' cannot be cancelled (already completed or not found)",
         )
 
-    key_manager = request.app.state.key_manager
-    session_key = __import__("os").urandom(32)
+    job_obj = await get_job_orm(job_id)
+    # Reuse the original request's session key so the client can decrypt the
+    # cancellation acknowledgement; fall back to random for legacy jobs.
+    session_key = (job_obj.session_key if job_obj else None) or _os.urandom(32)
     encrypted = encrypt_response(
         {"job_id": job_id, "status": "cancelled", "message": "Job cancelled."},
         session_key,

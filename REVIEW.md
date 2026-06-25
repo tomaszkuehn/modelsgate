@@ -22,6 +22,7 @@ encryption_algorithm=serialization.NoEncryption(),
 - Private key saved without password protection
 - Anyone with filesystem access can decrypt all traffic
 - __Fix__: Encrypt private key with a passphrase from env var
+- __Note (async jobs)__: as of the async-job decryptability fix, the per-request AES `session_key` is also persisted (as a `BLOB` on the `jobs` row) so that `GET /jobs/{id}` and `POST /jobs/{id}/cancel` responses can be decrypted by the client. This is additional key material at rest, consistent with this item's threat model (anyone with host/DB access can already decrypt traffic via the unencrypted private key). Jobs retain their `session_key` for their lifetime. If this item is remediated, revisit whether `session_key` should likewise be encrypted at rest.
 
 ### 3. __Session Secret Default is Insecure__ (app/config.py:22)
 

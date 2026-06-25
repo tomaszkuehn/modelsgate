@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean, JSON, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean, JSON, ForeignKey, LargeBinary
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -355,6 +355,10 @@ class Job(Base):
     # Identity
     client_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     model_used: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+    # AES session key from the original request — reused to encrypt poll/cancel
+    # responses so the client (which generated this key) can decrypt the result.
+    session_key: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)

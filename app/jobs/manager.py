@@ -70,6 +70,7 @@ async def create_job(
     task_type: str,
     request_json: str,
     client_id: Optional[str] = None,
+    session_key: Optional[bytes] = None,
 ) -> str:
     """Create a new job row. Returns the job_id UUID string."""
     job_id = str(uuid.uuid4())
@@ -81,6 +82,7 @@ async def create_job(
             request_json=request_json,
             client_id=client_id,
             progress_percent=0,
+            session_key=session_key,
         )
         session.add(job)
         await session.commit()
@@ -98,6 +100,15 @@ async def get_job(job_id: str) -> Optional[dict]:
         if job is None:
             return None
         return _job_to_dict(job)
+
+
+async def get_job_orm(job_id: str) -> Optional[Job]:
+    """Retrieve a job's ORM object (carries session_key for encrypting poll responses)."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(Job).where(Job.job_id == job_id)
+        )
+        return result.scalar_one_or_none()
 
 
 async def cancel_job(job_id: str) -> bool:
@@ -179,7 +190,13 @@ async def process_job_background(
             return
 
         # ── Parse request ──────────────────────────────────────────
-        from app.api.schemas import TaskRequest, NormalizedTaskRequest, UnifiedResponse, TaskType
+        from app.api.schemas import (
+            TaskRequest,
+            NormalizedTaskRequest,
+            UnifiedResponse,
+            TaskType,
+            TextContent,
+        )
         task_req = TaskRequest(**decrypted_request)
 
         # ── Policy enforcement ─────────────────────────────────────
@@ -227,6 +244,31 @@ async def process_job_background(
             preferred_provider=task_req.preferred_provider,
         )
 
+        # ── Workflow preprocessing (image_edit) ──────────────────
+        # Mirror the sync path: validate inputs and inject the edit system
+        # prompt so edit_options (style_guidance/output_format/...) are
+        # honored. Without this the async path sends raw messages and
+        # silently drops edit_options.
+        edit_options = (
+            task_req.edit_options
+            if normalized.task_type == TaskType.IMAGE_EDIT
+            else None
+        )
+        _edit_source_count: int = 0
+        if normalized.task_type == TaskType.IMAGE_EDIT:
+            from app.workflows.image_edit import (
+                execute_image_edit,
+                WorkflowEditValidationError,
+            )
+            try:
+                _, _edit_source_count = await execute_image_edit(
+                    task_req, None, normalized
+                )
+            except WorkflowEditValidationError as e:
+                logger.warning(f"image_edit validation failed: client={task_req.client_id} — {e}")
+                await _fail_job(job_id, f"image_edit validation failed: {e}")
+                return
+
         # Update model_used
         async with async_session() as session:
             r = await session.execute(select(Job).where(Job.job_id == job_id))
@@ -254,6 +296,23 @@ async def process_job_background(
             return
 
         await _update_progress(job_id, 80)
+
+        # ── Workflow postprocessing (image_edit) ─────────────────
+        # Build edit_result metadata from the provider's response so the
+        # client receives structured edit info (mirror sync path).
+        if normalized.task_type == TaskType.IMAGE_EDIT:
+            from app.workflows.image_edit import finalize_image_edit
+            response_text = ""
+            for block in unified_response.content:
+                if isinstance(block, TextContent):
+                    response_text += block.text
+            edit_result = finalize_image_edit(
+                content_blocks=unified_response.content,
+                options=edit_options,
+                source_image_count=_edit_source_count,
+                response_text=response_text,
+            )
+            unified_response.edit_result = edit_result
 
         # ── Record usage ────────────────────────────────────────────
         try:
@@ -349,7 +408,17 @@ async def _complete_job(job_id: str, result: dict):
 
 
 async def _fail_job(job_id: str, error: str):
-    """Mark a job as failed."""
+    """Mark a job as failed and trace it so failures appear in /admin/logs.
+
+    Every failure path (NoModelAvailable, policy violation, provider error,
+    cancellation, workflow validation) routes through here, so this is the
+    single place that makes failed async jobs visible in the admin log.
+    """
+    job_task_type: Optional[str] = None
+    job_client_id: Optional[str] = None
+    job_model_used: Optional[str] = None
+    job_request_json: Optional[str] = None
+
     async with async_session() as session:
         r = await session.execute(select(Job).where(Job.job_id == job_id))
         j = r.scalar_one_or_none()
@@ -359,3 +428,31 @@ async def _fail_job(job_id: str, error: str):
             j.completed_at = datetime.now(timezone.utc)
             await session.commit()
             logger.error(f"Job failed: {job_id} client={j.client_id or 'anonymous'} — {error}")
+            # Capture fields for the trace before the session closes.
+            job_task_type = j.task_type
+            job_client_id = j.client_id
+            job_model_used = j.model_used
+            job_request_json = j.request_json
+
+    # Trace the failure outside the session (avoid nesting). Only when the
+    # row was actually marked failed — cancelled jobs are not failures.
+    if job_task_type is not None:
+        try:
+            from app.logs.tracer import trace_request
+            try:
+                original = json.loads(job_request_json) if job_request_json else {}
+            except (json.JSONDecodeError, TypeError):
+                original = {"raw": job_request_json}
+            await trace_request(
+                request_id=job_id,
+                original=original,
+                response={"error": error, "status": "failed"},
+                task_type=job_task_type,
+                model_name=job_model_used or "none",
+                provider=None,
+                status="error",
+                client_id=job_client_id,
+                api_key_prefix=None,
+            )
+        except Exception as e:
+            logger.error(f"Failed to trace failed job: job={job_id} — {e}")

@@ -142,7 +142,7 @@ Every client registers (`GET /api/v1/register`) and receives a unique `client_id
 
 ### ⏳ Async Jobs
 
-`image_generate` and `image_edit` auto-run as background jobs. Poll `GET /api/v1/jobs/{job_id}`, cancel with `POST /api/v1/jobs/{job_id}/cancel`.
+`image_generate` and `image_edit` auto-run as background jobs. Poll `GET /api/v1/jobs/{job_id}`, cancel with `POST /api/v1/jobs/{job_id}/cancel`. The job-reference, poll, and cancel responses are all encrypted with the original request's `session_key` — keep it to decrypt the results.
 
 ### 📈 Observability
 

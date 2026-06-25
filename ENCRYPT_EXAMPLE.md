@@ -183,6 +183,8 @@ fun visionMessage(text: String, imageBase64: String, role: String = "user"): JSO
 5. Encrypt session_key with RSA-OAEP (server's public key)
 6. POST /api/v1/request {encrypted_key, encrypted_payload, nonce}
 7. Decrypt response with same session_key + response nonce
+8. (async jobs) Poll GET /api/v1/jobs/{job_id} and cancel POST /api/v1/jobs/{job_id}/cancel
+   — both responses decrypt with the SAME session_key from step 3
 ```
 
 ## Common Mistakes (BAD_DECRYPT)
@@ -191,5 +193,6 @@ fun visionMessage(text: String, imageBase64: String, role: String = "user"): JSO
 |---------|-----|
 | Using request nonce to decrypt response | Use `responseJson.getString("nonce")` |
 | Re-generating session key for response | Keep the same `sessionKey` object |
+| Decrypting job poll/cancel responses | Reuse the original request's `sessionKey` — poll & cancel envelopes are sealed with it |
 | Not stripping PEM headers | Remove `-----BEGIN/END PUBLIC KEY-----` and newlines |
 | Wrong Base64 flags | Use `Base64.NO_WRAP` |
