@@ -353,9 +353,22 @@ async def process_job_background(
         # in /admin/logs (previously only usage stats were recorded).
         try:
             from app.logs.tracer import trace_request
+
+            # Capture the provider-specific converted format (mirrors
+            # routes.py:614-624) so /admin/logs shows what was sent to
+            # the model — previously empty for async jobs.
+            converted = None
+            try:
+                provider_inst = registry._get_provider(normalized.model)
+                if hasattr(provider_inst, '_convert_messages'):
+                    converted = provider_inst._convert_messages(normalized.messages)
+            except Exception:
+                pass
+
             await trace_request(
                 request_id=unified_response.id,
                 original=decrypted_request,
+                converted=converted,
                 response=unified_response.model_dump(),
                 task_type=normalized.task_type.value,
                 model_name=normalized.model,
