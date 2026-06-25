@@ -143,11 +143,33 @@ class AlibabaProvider(BaseModelProvider):
                 detail = e.response.json()
             except Exception:
                 detail = e.response.text
-            logger.error(f"Alibaba provider error: {e.response.status_code} — {detail}")
+
+            # Normalise detail to a string for inspection
+            detail_str = str(detail)
+
+            logger.error(f"Alibaba provider error: {e.response.status_code} — {detail_str}")
+
+            # Map Alibaba content-safety rejections to a clear client message.
+            # "Data inspection failed" = the model's safety filter flagged the
+            # input image(s) or prompt. Don't pass the raw API error back.
+            if "data inspection failed" in detail_str.lower():
+                return UnifiedResponse(
+                    task_type=request.task_type,
+                    model=request.model,
+                    content=[],
+                    error=(
+                        "Request rejected by model content policy. "
+                        "The input image(s) or prompt were flagged by the "
+                        "provider's safety inspection. Try with different "
+                        "images or rephrase the instruction."
+                    ),
+                    error_code="CONTENT_POLICY_REJECTION",
+                )
+
             return self.make_response(
                 task_type=request.task_type,
                 model=request.model,
-                error=f"Alibaba error: {e.response.status_code} — {detail}",
+                error=f"Alibaba error: {e.response.status_code} — {detail_str}",
             )
         except Exception as e:
             logger.error(f"Alibaba provider error: {e}")
