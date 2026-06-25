@@ -2,10 +2,11 @@
 
 import logging
 import sys
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -20,6 +21,9 @@ root = logging.getLogger()
 root.handlers.clear()  # remove uvicorn's default handler
 root.addHandler(handler)
 root.setLevel(logging.INFO)
+
+# Access logger — one line per HTTP request (mirrors nginx access log).
+access_logger = logging.getLogger("app.access")
 
 from app.config import settings
 from app.database import init_db
@@ -77,6 +81,41 @@ app = FastAPI(
 
 # Session middleware (required for admin panel auth)
 app.add_middleware(SessionMiddleware, secret_key=settings.session_secret)
+
+# ── Access log: one line per request (mirrors nginx access log) ──────────
+# Ensures no client traffic is silent in the app log — covers /api/v1/public-key,
+# /api/v1/request, /, /admin/*, /api/v1/jobs/*, and every status code.
+@app.middleware("http")
+async def access_log_middleware(request: Request, call_next):
+    """Log every HTTP request so no client request is missing from the app log."""
+    # Skip static assets — not client/API traffic.
+    path = request.url.path
+    if path.startswith("/admin/static/") or path == "/favicon.ico":
+        return await call_next(request)
+
+    start = time.time()
+    response = await call_next(request)
+    duration_ms = int((time.time() - start) * 1000)
+
+    # Real client IP when behind nginx (X-Forwarded-For), else socket peer.
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+    elif request.client:
+        client_ip = request.client.host
+    else:
+        client_ip = "-"
+
+    user_agent = request.headers.get("user-agent", "-")
+    content_length = response.headers.get("content-length", "-")
+    http_version = request.scope.get("http_version", "-")
+
+    access_logger.info(
+        f'ACCESS {client_ip} "{request.method} {path} '
+        f'{http_version}" {response.status_code} {content_length} '
+        f'{duration_ms}ms "{user_agent}"'
+    )
+    return response
 
 # Mount routers
 app.include_router(api_router)

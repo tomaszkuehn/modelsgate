@@ -53,6 +53,40 @@ def _resolve_api_key_prefix(model_name: str, registry) -> Optional[str]:
     return env_key[:12] if env_key else None
 
 
+async def _finish_error_response(
+    err_response: UnifiedResponse,
+    *,
+    session_key: bytes,
+    original: dict,
+    task_type: Optional[str],
+    client_id: Optional[str],
+) -> EncryptedResponse:
+    """Trace an error response to /admin/logs, then encrypt and return it.
+
+    Used by the early-return error paths in handle_request so that
+    POLICY_VIOLATION / GROUP_ROUTING_MISCONFIGURED / NO_MODEL_AVAILABLE /
+    WORKFLOW_VALIDATION_FAILED outcomes are visible in the request trace log
+    instead of being silently dropped before the logging tail.
+    """
+    try:
+        from app.logs.tracer import trace_request
+        await trace_request(
+            request_id=err_response.id,
+            original=original,
+            response=err_response.model_dump(),
+            task_type=task_type,
+            model_name=err_response.model,
+            provider=None,
+            status="error",
+            client_id=client_id,
+            api_key_prefix=None,
+        )
+    except Exception as e:
+        logger.error(f"Failed to trace error response: client={client_id} — {e}")
+    encrypted = encrypt_response(err_response.model_dump(), session_key)
+    return EncryptedResponse(**encrypted)
+
+
 # ── Public key ──────────────────────────────────────────────────────────
 
 @router.get("/public-key", response_model=PublicKeyResponse)
@@ -92,6 +126,7 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
 
     # ── 2. Parse ────────────────────────────────────────────────────
     normalized: NormalizedTaskRequest
+    task_req = None  # safety init so the except block can reference it
 
     try:
         # New task-based request with optional routing constraints
@@ -215,10 +250,13 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
                     error=str(e),
                     error_code="POLICY_VIOLATION",
                 )
-                encrypted = encrypt_response(
-                    err_response.model_dump(), session_key
+                return await _finish_error_response(
+                    err_response,
+                    session_key=session_key,
+                    original=decrypted,
+                    task_type=task_req.task_type.value,
+                    client_id=task_req.client_id,
                 )
-                return EncryptedResponse(**encrypted)
 
             # Apply policy constraints (tightens routing fields)
             enforcer.apply_policy_constraints(resolved, task_req)
@@ -258,8 +296,13 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
                     ),
                     error_code="GROUP_ROUTING_MISCONFIGURED",
                 )
-                encrypted = encrypt_response(err_response.model_dump(), session_key)
-                return EncryptedResponse(**encrypted)
+                return await _finish_error_response(
+                    err_response,
+                    session_key=session_key,
+                    original=decrypted,
+                    task_type=task_req.task_type.value,
+                    client_id=task_req.client_id,
+                )
 
         routing_ctx = _RoutingContext.from_task_request(task_req)
         decision = router.route(routing_ctx)
@@ -294,8 +337,16 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
                 error=str(_e),
                 error_code="NO_MODEL_AVAILABLE",
             )
-            encrypted = encrypt_response(err_response.model_dump(), session_key)
-            return EncryptedResponse(**encrypted)
+            return await _finish_error_response(
+                err_response,
+                session_key=session_key,
+                original=decrypted,
+                task_type=(
+                    task_req.task_type.value if task_req
+                    else decrypted.get("task_type")
+                ),
+                client_id=task_req.client_id if task_req else decrypted.get("client_id"),
+            )
 
         parse_error = _e
         # ── Backward compat ──
@@ -359,8 +410,13 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
                 error=str(e),
                 error_code="WORKFLOW_VALIDATION_FAILED",
             )
-            encrypted = encrypt_response(err_response.model_dump(), session_key)
-            return EncryptedResponse(**encrypted)
+            return await _finish_error_response(
+                err_response,
+                session_key=session_key,
+                original=decrypted,
+                task_type=normalized.task_type.value,
+                client_id=task_req.client_id,
+            )
 
     if normalized.task_type == TaskType.IMAGE_EDIT:
         from app.workflows.image_edit import (
@@ -380,8 +436,13 @@ async def handle_request(encrypted_body: EncryptedRequest, request: Request):
                 error=str(e),
                 error_code="WORKFLOW_VALIDATION_FAILED",
             )
-            encrypted = encrypt_response(err_response.model_dump(), session_key)
-            return EncryptedResponse(**encrypted)
+            return await _finish_error_response(
+                err_response,
+                session_key=session_key,
+                original=decrypted,
+                task_type=normalized.task_type.value,
+                client_id=task_req.client_id,
+            )
 
     # ── 4. Forward to provider ──────────────────────────────────────
     from app.models.registry import ModelRegistry

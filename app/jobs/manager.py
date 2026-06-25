@@ -289,6 +289,26 @@ async def process_job_background(
         except Exception as e:
             logger.error(f"Job usage recording failed: client={task_req.client_id or 'anonymous'} job={job_id} — {e}")
 
+        # ── Trace request log ───────────────────────────────────────
+        # Mirrors the sync path so image_generate/image_edit jobs appear
+        # in /admin/logs (previously only usage stats were recorded).
+        try:
+            from app.logs.tracer import trace_request
+            await trace_request(
+                request_id=unified_response.id,
+                original=decrypted_request,
+                response=unified_response.model_dump(),
+                task_type=normalized.task_type.value,
+                model_name=normalized.model,
+                model_id=decision.model_id,
+                provider=registry.get_provider_name(normalized.model),
+                status="error" if unified_response.error else "success",
+                client_id=task_req.client_id,
+                api_key_prefix=None,
+            )
+        except Exception as e:
+            logger.error(f"Job trace failed: job={job_id} — {e}")
+
         # ── Complete ────────────────────────────────────────────────
         await _complete_job(job_id, unified_response.model_dump())
 

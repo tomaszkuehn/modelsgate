@@ -53,6 +53,13 @@ class AlibabaProvider(BaseModelProvider):
         else:
             self.api_base = DASHSCOPE_API_BASE
 
+    def _convert_messages(self, messages: List[Message]) -> List[dict]:
+        """Convert unified messages to native DashScope multimodal format.
+
+        Public interface used by trace logging to capture the converted request.
+        """
+        return self._build_dashscope_messages(messages)
+
     async def _generate(self, request: NormalizedTaskRequest) -> UnifiedResponse:
         if not self.api_key:
             return self.make_response(
