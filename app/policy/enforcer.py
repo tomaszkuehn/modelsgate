@@ -68,8 +68,13 @@ class ResolvedPolicy:
 
     @classmethod
     def default(cls) -> "ResolvedPolicy":
-        """Permissive default — allows everything."""
-        return cls(policy_name="default (allow all)")
+        """Permissive default — allows everything (including image generation/editing)."""
+        return cls(
+            policy_name="default (allow all)",
+            allow_image_output=True,
+            allow_image_edit=True,
+            allow_streaming=True,
+        )
 
     @classmethod
     def from_db_policy(cls, policy: RoutingPolicy) -> "ResolvedPolicy":
