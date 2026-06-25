@@ -162,9 +162,25 @@ class AlibabaProvider(BaseModelProvider):
 
         DashScope content is a flat array of {"image": "..."} and {"text": "..."}
         objects (not the OpenAI nested type/image_url format).
+
+        The DashScope multimodal API requires messages[0].role == "user", so any
+        leading system messages injected by workflows (e.g. image_edit) are
+        extracted and their text is prepended to the first user message.
         """
+        msgs = list(messages)
+
+        # Extract leading system messages — the DashScope multimodal API
+        # rejects {role:"system"} at position 0. Merge their text into the
+        # first user message instead.
+        system_texts = []
+        while msgs and msgs[0].role == "system":
+            for block in msgs[0].content:
+                if isinstance(block, TextContent) and block.text.strip():
+                    system_texts.append(block.text.strip())
+            msgs.pop(0)
+
         result = []
-        for msg in messages:
+        for i, msg in enumerate(msgs):
             content_parts = []
             for block in msg.content:
                 if isinstance(block, TextContent) and block.text.strip():
@@ -177,6 +193,14 @@ class AlibabaProvider(BaseModelProvider):
 
             if not content_parts:
                 continue
+
+            # Prepend extracted system text to the first user message
+            if i == 0 and system_texts and msg.role == "user":
+                prefix = "\n\n".join(system_texts)
+                if content_parts and "text" in content_parts[0]:
+                    content_parts[0]["text"] = prefix + "\n\n" + content_parts[0]["text"]
+                else:
+                    content_parts.insert(0, {"text": prefix})
 
             # If only text and no images, use simple string content
             text_only = all("text" in p for p in content_parts)
