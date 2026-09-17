@@ -228,10 +228,13 @@ sudo ufw status
 
 ```bash
 # Health check via localhost
-curl http://localhost:8000/
+curl http://localhost:8000/health
 
 # Health check via nginx
-curl http://localhost/
+curl http://localhost/health
+
+# Landing page (HTML) via nginx
+curl -I http://localhost/
 
 # Check service is running
 sudo systemctl status ai-backend

@@ -31,3 +31,6 @@ data/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local VPS helper (contains credentials)
+vps_exec.py

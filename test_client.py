@@ -265,7 +265,7 @@ def main():
 
     # Check server health
     try:
-        health = requests.get(f"{args.server}/")
+        health = requests.get(f"{args.server}/health")
         print(f"[*] Server status: {health.json()}")
     except Exception as e:
         print(f"[!] Cannot reach server at {args.server}: {e}")

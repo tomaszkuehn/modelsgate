@@ -203,8 +203,10 @@ GET /api/v1/register
 ### 4.2 Health Check
 
 ```
-GET /
+GET /health
 ```
+
+No encryption required. (`GET /` serves the marketing landing page as HTML.)
 
 No encryption required.
 
@@ -1036,7 +1038,8 @@ curl http://localhost:8000/admin/dashboard -b cookies.txt
 │ Encryption:    RSA-2048 (OAEP+SHA256) + AES-256-GCM           │
 │ Content-Type:  application/json                               │
 ├──────────────────────────────────────────────────────────────┤
-│ GET  /                                  Health check          │
+│ GET  /                                  Landing page (HTML)   │
+│ GET  /health                            Health check          │
 │ GET  /api/v1/public-key                 Get RSA public key    │
 │ POST /api/v1/request                    Send encrypted req    │
 ├──────────────────────────────────────────────────────────────┤

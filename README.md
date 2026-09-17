@@ -48,8 +48,9 @@ docker compose up --build
 ### 3. Verify
 
 ```bash
-curl http://localhost:8000/                           # Health check (direct)
-curl http://localhost/                                # Health check (via nginx)
+curl http://localhost:8000/health                    # Health check (direct)
+curl http://localhost/health                         # Health check (via nginx)
+curl http://localhost:8000/                          # Landing page (HTML)
 curl http://localhost:8000/api/v1/public-key          # RSA public key
 curl http://localhost:8000/api/v1/register            # Get a client ID
 python test_client.py --task chat_with_context        # Test request
@@ -251,7 +252,8 @@ Add models via **Admin → Models**. Each model has:
 
 Key endpoints:
 ```
-GET  /                          Health check
+GET  /                          Landing page (HTML)
+GET  /health                    Health check
 GET  /api/v1/register           Register client → {client_id, plan}
 GET  /api/v1/public-key         RSA public key
 POST /api/v1/request            Encrypted AI request

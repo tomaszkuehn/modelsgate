@@ -7,7 +7,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from jinja2 import Environment, FileSystemLoader
 from starlette.middleware.sessions import SessionMiddleware
 
 # ── Logging: timestamps on every line ────────────────────────────────────
@@ -126,8 +128,20 @@ static_dir = Path(__file__).parent / "admin" / "static"
 static_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/admin/static", StaticFiles(directory=str(static_dir)), name="admin_static")
 
+# Landing page (marketing site) at /, health check moved to /health
+_templates_dir = Path(__file__).parent / "web" / "templates"
+_jinja_env = Environment(
+    loader=FileSystemLoader(str(_templates_dir)), autoescape=True
+)
 
-@app.get("/")
-async def root():
+
+@app.get("/", response_class=HTMLResponse)
+async def landing():
+    """Marketing landing page."""
+    return HTMLResponse(_jinja_env.get_template("landing.html").render())
+
+
+@app.get("/health")
+async def health():
     """Health check endpoint."""
     return {"status": "ok", "service": "AI Model Backend", "version": "1.0.0"}
