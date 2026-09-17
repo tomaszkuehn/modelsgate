@@ -129,16 +129,34 @@ static_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/admin/static", StaticFiles(directory=str(static_dir)), name="admin_static")
 
 # Landing page (marketing site) at /, health check moved to /health
-_templates_dir = Path(__file__).parent / "web" / "templates"
+_static_dir = Path(__file__).parent / "web" / "static"
+app.mount("/static", StaticFiles(directory=str(_static_dir)), name="web_static")
 _jinja_env = Environment(
-    loader=FileSystemLoader(str(_templates_dir)), autoescape=True
+    loader=FileSystemLoader(str(Path(__file__).parent / "web" / "templates")),
+    autoescape=True,
 )
+
+
+def _render(template_name: str) -> HTMLResponse:
+    return HTMLResponse(_jinja_env.get_template(template_name).render())
 
 
 @app.get("/", response_class=HTMLResponse)
 async def landing():
     """Marketing landing page."""
-    return HTMLResponse(_jinja_env.get_template("landing.html").render())
+    return _render("landing.html")
+
+
+@app.get("/imprint", response_class=HTMLResponse)
+async def imprint():
+    """Imprint / legal notice."""
+    return _render("imprint.html")
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy():
+    """Privacy statement."""
+    return _render("privacy.html")
 
 
 @app.get("/health")
