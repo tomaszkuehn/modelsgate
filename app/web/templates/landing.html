@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ModelsGate — Sztuczna inteligencja dla Twojego biznesu</title>
-<meta name="description" content="ModelsGate łączy najlepsze modele AI świata w jednym miejscu: teksty, analiza obrazów, generowanie grafiki. Bezpiecznie, prosto, bez komplikacji.">
+<title>ModelsGate — One gateway for every AI model</title>
+<meta name="description" content="ModelsGate is a gateway between your application and AI models. Your app sends one request — the service manages provider access, credentials and delivery.">
 <style>
   :root {
     --bg: #0a0e1a;
@@ -141,6 +141,20 @@
   .card h3 { font-size: 1.2rem; margin-bottom: 10px; }
   .card p { color: var(--text-dim); font-size: 0.97rem; }
 
+  .keypoint {
+    max-width: 900px;
+    margin: 0 auto;
+    text-align: center;
+    background: var(--card);
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    padding: 48px 40px;
+    box-shadow: 0 0 60px rgba(109, 124, 255, 0.12);
+  }
+  .keypoint h2 { font-size: clamp(1.6rem, 3.5vw, 2.2rem); margin-bottom: 18px; }
+  .keypoint p { color: var(--text-dim); max-width: 680px; margin: 0 auto 14px; }
+  .keypoint strong { color: var(--text); }
+
   .steps { counter-reset: step; max-width: 900px; margin: 0 auto; }
   .step {
     display: flex; gap: 24px; align-items: flex-start;
@@ -216,75 +230,84 @@
 <nav class="nav">
   <div class="logo">Models<span>Gate</span></div>
   <div class="nav-links">
-    <a href="#oferta">Oferta</a>
-    <a href="#jak-to-dziala">Jak to działa</a>
-    <a href="#wspolpraca">Współpraca</a>
-    <a href="#wspolpraca" class="btn btn-primary" style="padding:10px 22px;">Kontakt</a>
+    <a href="#what">What it does</a>
+    <a href="#how">How it works</a>
+    <a href="#contact">Contact</a>
+    <a href="#contact" class="btn btn-primary" style="padding:10px 22px;">Get in touch</a>
   </div>
 </nav>
 
 <header class="hero">
-  <h1>Modele AI świata.<br><span>Jeden adres.</span></h1>
-  <p>ModelsGate to platforma, która daje Twojej firmie dostęp do najlepszych modeli sztucznej inteligencji — do pisania tekstów, analizy obrazów i tworzenia grafiki — wszystko w jednym, bezpiecznym miejscu.</p>
+  <h1>Every AI model.<br><span>One gateway.</span></h1>
+  <p>ModelsGate sits between your application and AI models. Your app sends one request to one endpoint — the service takes care of everything else: provider access, credentials, routing and delivery.</p>
   <div class="hero-actions">
-    <a href="#wspolpraca" class="btn btn-primary">Porozmawiajmy o współpracy</a>
-    <a href="#oferta" class="btn btn-ghost">Sprawdź możliwości</a>
+    <a href="#contact" class="btn btn-primary">Get in touch</a>
+    <a href="#how" class="btn btn-ghost">See how it works</a>
   </div>
 </header>
 
 <div class="stats">
-  <div class="stat"><b>7+</b><small>dostawców AI w jednym miejscu</small></div>
-  <div class="stat"><b>1</b><small>punkt dostępu zamiast wielu</small></div>
-  <div class="stat"><b>24/7</b><small>ciągła dostępność serwisu</small></div>
-  <div class="stat"><b>100%</b><small>danych chronionych szyfrowaniem</small></div>
+  <div class="stat"><b>7+</b><small>provider types supported out of the box</small></div>
+  <div class="stat"><b>1</b><small>endpoint for every task</small></div>
+  <div class="stat"><b>0</b><small>provider credentials in your app</small></div>
+  <div class="stat"><b>100%</b><small>of payloads encrypted end to end</small></div>
 </div>
 
-<section id="oferta">
+<section id="keypoint" style="padding-bottom: 0;">
+  <div class="keypoint">
+    <h2>Your app doesn't manage AI access. ModelsGate does.</h2>
+    <p>Connecting an application to AI models normally means juggling provider accounts, API keys, SDKs and per-provider quirks — inside your own code.</p>
+    <p>With ModelsGate, <strong>your application never talks to AI providers directly and never touches their credentials</strong>. The service manages model access centrally: providers are connected and configured in one place, and your app simply declares what it needs.</p>
+    <p>Adding, replacing or removing a model is a configuration change in the gateway — not a code change in your application.</p>
+  </div>
+</section>
+
+<section id="what">
   <div class="section-title">
-    <h2>Co możesz zrobić z ModelsGate</h2>
-    <p>Jedna platforma, trzy obszary zastosowań. Ty opisujesz zadanie — my dbamy o resztę.</p>
+    <h2>What your app can do through it</h2>
+    <p>One request format covers every content type the connected models support.</p>
   </div>
   <div class="grid grid-3">
     <div class="card">
       <div class="icon">💬</div>
-      <h3>Tekst i rozmowy</h3>
-      <p>Inteligentne chatboty, generowanie i redakcja treści, analiza dokumentów oraz odpowiedzi na pytania w kontekście Twojej firmy.</p>
+      <h3>Text & conversation</h3>
+      <p>Multi-turn chat with context — assistants, content generation, document analysis, question answering.</p>
     </div>
     <div class="card">
       <div class="icon">🔍</div>
-      <h3>Analiza obrazów</h3>
-      <p>Rozpoznawanie, opisywanie i porównywanie zdjęć. Automatyczna weryfikacja produktów, dokumentów czy treści graficznych.</p>
+      <h3>Image understanding</h3>
+      <p>Describe, ask questions about, and compare images — from a single photo to multiple images side by side.</p>
     </div>
     <div class="card">
       <div class="icon">🎨</div>
-      <h3>Grafika AI</h3>
-      <p>Generowanie obrazów z opisu oraz edycja istniejących grafik — na przykład automatyczne przygotowanie zdjęć produktowych.</p>
+      <h3>Image generation & editing</h3>
+      <p>Create images from a text prompt or edit existing ones with instructions. Long-running work is handled as background jobs.</p>
     </div>
   </div>
 </section>
 
-<section id="jak-to-dziala" style="padding-top: 0;">
+<section id="how" style="padding-top: 0;">
   <div class="section-title">
-    <h2>Jak to działa</h2>
-    <p>Bez zespołu specjalistów od AI. Bez skomplikowanych wdrożeń.</p>
+    <h2>How it works</h2>
+    <p>Three steps. Only the first one is yours — and it happens in the gateway, not in your code.</p>
   </div>
   <div class="steps">
     <div class="step">
       <div>
-        <h3>Opisujesz zadanie</h3>
-        <p>Mówisz, czego potrzebujesz: tekst, analiza zdjęcia czy nowa grafika. Po polsku lub po angielsku.</p>
+        <h3>You configure the models</h3>
+        <p>Connect the providers you want and add the models you intend to use. You decide what each model can do, which tasks it serves, and in what order it should be tried.</p>
       </div>
     </div>
     <div class="step">
       <div>
-        <h3>My wybieramy najlepszy model</h3>
-        <p>Platforma sama dobiera model AI najlepiej dopasowany do Twojego zadania — zawsze aktualny i sprawdzony.</p>
+        <h3>Your app declares a task</h3>
+        <p>The application sends a single request to a single endpoint, stating the task type and its content — no provider SDKs, no API keys, no per-provider code paths.</p>
       </div>
     </div>
     <div class="step">
       <div>
-        <h3>Otrzymujesz gotowy wynik</h3>
-        <p>Wynik trafia tam, gdzie potrzebujesz. Wszystko rozliczane przejrzyście, z pełnym wglądem w wykorzystanie.</p>
+        <h3>The gateway does the rest</h3>
+        <p>ModelsGate routes the request to one of the models you configured, handles fallbacks, returns the result, and logs every request with full usage statistics.</p>
       </div>
     </div>
   </div>
@@ -292,42 +315,41 @@
 
 <section style="padding-top: 0;">
   <div class="section-title">
-    <h2>Dlaczego ModelsGate</h2>
-    <p>Świat AI zmienia się co miesiąc. My sprawiamy, że te zmiany działają na Twoją korzyść.</p>
+    <h2>Why ModelsGate</h2>
+    <p>Everything that normally clutters your application lives in the gateway instead.</p>
   </div>
   <div class="grid grid-2">
     <div class="card">
-      <h3>Jeden partner zamiast dziesięciu</h3>
-      <p>Nie musisz zawierać umów z każdym dostawcą modeli AI osobno. ModelsGate to jedno miejsce, jedna współpraca, jedna faktura.</p>
+      <h3>Credentials stay out of your app</h3>
+      <p>Provider API keys live in the gateway. Your application holds exactly one identity — its own client ID.</p>
     </div>
     <div class="card">
-      <h3>Bezpieczeństwo na pierwszym miejscu</h3>
-      <p>Wszystkie dane przesyłane przez platformę są chronione zaawansowanym szyfrowaniem — od momentu wysłania aż po otrzymanie wyniku.</p>
+      <h3>Models are configuration, not code</h3>
+      <p>What is available and what handles which task depends entirely on your configuration. Swap models or providers without touching the application.</p>
     </div>
     <div class="card">
-      <h3>Zawsze aktualne modele</h3>
-      <p>Gdy na rynku pojawia się nowy, lepszy model AI — korzystasz z niego automatycznie. Bez zmian po Twojej stronie.</p>
+      <h3>Encrypted payloads</h3>
+      <p>Every request and response is encrypted end to end — the content stays protected, regardless of the network in between.</p>
     </div>
     <div class="card">
-      <h3>Pełna kontrola i przejrzystość</h3>
-      <p>Wiesz dokładnie, jakie zadania były wykonywane i ile kosztowały. Rzetelne statystyki i limity dopasowane do Twoich potrzeb.</p>
+      <h3>Full visibility</h3>
+      <p>Usage tracking, request traces, per-client and per-group rules, limits and policies — all built in and manageable from an admin panel.</p>
     </div>
   </div>
 </section>
 
-<section id="wspolpraca" class="cooperate">
+<section id="contact" class="cooperate">
   <div class="coop-box">
-    <h2>Zapraszamy do współpracy</h2>
-    <p>Szukasz sposobu na wdrożenie sztucznej inteligencji w swojej firmie? Budujesz produkt, który potrzebuje AI? Prowadzisz agencję i chcesz rozszerzyć ofertę?</p>
-    <p>Zaproponujemy model dopasowany do Twoich potrzeb — od prostego pilotażu po pełną, długofalową integrację.</p>
-    <p><strong>Pierwsza rozmowa jest zawsze bezpłatna.</strong></p>
+    <h2>Get in touch</h2>
+    <p>Building an application that needs AI behind it? Curious whether ModelsGate fits your setup, or how an integration would look in practice?</p>
+    <p>Write to us — we're happy to walk you through the gateway and answer any questions.</p>
     <a class="coop-mail" href="mailto:kontakt@modelsgate.eu">kontakt@modelsgate.eu</a>
   </div>
 </section>
 
 <footer>
   <div class="logo">Models<span>Gate</span></div>
-  <p>© 2026 ModelsGate · modelsgate.eu — Sztuczna inteligencja w zasięgu Twojej firmy</p>
+  <p>© 2026 ModelsGate · modelsgate.eu — One gateway for every AI model</p>
 </footer>
 
 </body>
