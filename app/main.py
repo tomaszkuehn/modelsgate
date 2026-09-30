@@ -131,6 +131,9 @@ app.mount("/admin/static", StaticFiles(directory=str(static_dir)), name="admin_s
 # Landing page (marketing site) at /, health check moved to /health
 _static_dir = Path(__file__).parent / "web" / "static"
 app.mount("/static", StaticFiles(directory=str(_static_dir)), name="web_static")
+_pb_dir = Path(__file__).parent / "web" / "templates" / "pbinsurance"
+if _pb_dir.is_dir():
+    app.mount("/pbinsurance", StaticFiles(directory=str(_pb_dir), html=True), name="pbinsurance")
 _jinja_env = Environment(
     loader=FileSystemLoader(str(Path(__file__).parent / "web" / "templates")),
     autoescape=True,
