@@ -159,6 +159,12 @@ async def privacy():
     return _render("privacy.html")
 
 
+@app.get("/pb", response_class=HTMLResponse)
+async def pb():
+    """Placeholder page."""
+    return _render("pb.html")
+
+
 @app.get("/health")
 async def health():
     """Health check endpoint."""
