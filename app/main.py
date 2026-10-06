@@ -82,7 +82,7 @@ app = FastAPI(
 )
 
 # Session middleware (required for admin panel auth)
-app.add_middleware(SessionMiddleware, secret_key=settings.session_secret)
+app.add_middleware(SessionMiddleware, secret_key=settings.session_secret, https_only=True, max_age=86400)
 
 # ── Access log: one line per request (mirrors nginx access log) ──────────
 # Ensures no client traffic is silent in the app log — covers /api/v1/public-key,
