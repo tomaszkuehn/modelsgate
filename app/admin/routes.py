@@ -45,7 +45,10 @@ async def login(
     """Authenticate admin user with brute-force protection."""
     from app.database import async_session
 
-    client_ip = request.client.host if request.client else "unknown"
+    # Trust the reverse proxy (nginx sets X-Real-IP) — never client-supplied XFF
+    client_ip = request.headers.get("x-real-ip") or (
+        request.client.host if request.client else "unknown"
+    )
 
     # 1 — IP-level rate limit (don't even hit the DB if flooding)
     try:

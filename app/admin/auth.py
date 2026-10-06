@@ -71,8 +71,14 @@ async def check_account_locked(session: AsyncSession, username: str) -> AdminUse
     if user is None:
         return None  # Don't reveal whether the username exists
 
-    if user.locked_until and user.locked_until > datetime.now(timezone.utc):
-        remaining = int((user.locked_until - datetime.now(timezone.utc)).total_seconds() / 60) + 1
+    now_utc = datetime.now(timezone.utc)
+    # SQLite may return naive datetimes — treat them as UTC
+    locked_until = user.locked_until
+    if locked_until and locked_until.tzinfo is None:
+        locked_until = locked_until.replace(tzinfo=timezone.utc)
+
+    if locked_until and locked_until > now_utc:
+        remaining = int((locked_until - now_utc).total_seconds() / 60) + 1
         # Treat locked account same as bad credentials — don't leak info
         raise HTTPException(
             status_code=429,
