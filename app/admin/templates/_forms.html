@@ -1,0 +1,70 @@
+{% macro select(name, options, selected=None, label=None, required=False) %}
+    <div>
+        {% if label %}<label for="{{ name }}">{{ label }}{% if required %} *{% endif %}</label>{% endif %}
+        <select id="{{ name }}" name="{{ name }}" class="form-control">
+            {% for opt, opt_label in options %}
+            <option value="{{ opt }}" {% if selected == opt %}selected{% endif %}>{{ opt_label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+{% endmacro %}
+
+{% macro text(name, label=None, value="", placeholder="", required=False, type="text", step=None, min=None, width=None) %}
+    <div{% if width %} style="width:{{ width }};"{% endif %}>
+        {% if label %}<label for="{{ name }}">{{ label }}{% if required %} *{% endif %}</label>{% endif %}
+        <input type="{{ type }}" id="{{ name }}" name="{{ name }}" value="{{ value if value is not none else '' }}"
+               placeholder="{{ placeholder }}" class="form-control"
+               {% if required %}required{% endif %}
+               {% if step is not none %}step="{{ step }}"{% endif %}
+               {% if min is not none %}min="{{ min }}"{% endif %}>
+    </div>
+{% endmacro %}
+
+{% macro capability_checkboxes(config=None, suffix="") %}
+    {% set caps = [
+        ('text_input', 'Text In', true),
+        ('image_input', 'Img In', false),
+        ('multi_image_input', 'Multi Img', false),
+        ('text_output', 'Text Out', true),
+        ('image_output', 'Img Out', false),
+        ('image_edit', 'Img Edit', false),
+        ('streaming', 'Stream', false),
+    ] %}
+    {% set attr_map = {
+        'text_input': 'supports_text_input',
+        'image_input': 'supports_image_input',
+        'multi_image_input': 'supports_multi_image_input',
+        'text_output': 'supports_text_output',
+        'image_output': 'supports_image_output',
+        'image_edit': 'supports_image_edit',
+        'streaming': 'supports_streaming',
+    } %}
+    <div class="cap-checkboxes">
+        {% for name, label, checked_default in caps %}
+        <label class="cap-checkbox">
+            <input type="checkbox" name="{{ name }}{{ suffix }}"
+                   {% if config %}{% if config[attr_map[name]] %}checked{% endif %}{% elif checked_default %}checked{% endif %}>
+            {{ label }}
+        </label>
+        {% endfor %}
+    </div>
+{% endmacro %}
+
+{% macro capability_badges(config) %}
+    <div class="cap-badges">
+        {% set badges = [
+            ('TxtIn', config.supports_text_input, 'var(--success)'),
+            ('ImgIn', config.supports_image_input, '#60a5fa'),
+            ('Multi', config.supports_multi_image_input, '#c084fc'),
+            ('TxtOut', config.supports_text_output, 'var(--success)'),
+            ('ImgOut', config.supports_image_output, '#fbbf24'),
+            ('Edit', config.supports_image_edit, '#f97316'),
+            ('Stream', config.supports_streaming, '#34d399'),
+        ] %}
+        {% for label, val, color in badges %}
+        <span class="cap-badge" style="background:{% if val %}color-mix(in srgb, {{ color }} 15%, transparent){% else %}var(--surface2){% endif %};color:{% if val %}{{ color }}{% else %}var(--text-muted){% endif %};border-color:{% if val %}{{ color }}55{% else %}var(--border){% endif %};">
+            {{ label }}{{ ' ✓' if val else '' }}
+        </span>
+        {% endfor %}
+    </div>
+{% endmacro %}

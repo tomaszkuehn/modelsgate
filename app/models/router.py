@@ -21,6 +21,7 @@ from app.api.schemas import (
     MatchType,
     RouteDecision,
     NormalizedTaskRequest,
+    PLAN_TIER_RANK,
 )
 from app.models.base import ModelConfig
 
@@ -103,12 +104,13 @@ class ModelRouter:
       - Track usage statistics
     """
 
-    # Relaxation order when no candidates match
+    # Relaxation order when no candidates match — single source of truth:
+    # the router relaxes in this order and the admin panel renders it.
     RELAXATION_STEPS = [
-        ("plan_tier",   "Upgraded plan tier to find a match"),
-        ("output_type", "Relaxed output type constraint"),
-        ("cost_class",  "Ignored cost preference"),
-        ("preferred_provider", "Ignored provider preference"),
+        ("plan_tier",          "Upgrade plan tier to find a match"),
+        ("output_type",        "Relax output type constraint"),
+        ("cost_class",         "Ignore cost preference"),
+        ("preferred_provider", "Ignore provider preference"),
     ]
 
     def __init__(self, configs: List[ModelConfig]):
@@ -172,9 +174,11 @@ class ModelRouter:
         winner = candidates[0]
         alternatives = [c.name for c in candidates[1:4]]
 
-        match_type = MatchType.FALLBACK if relaxed else MatchType.EXACT
-        if relaxed and len(relaxed) == 1 and "availability" in relaxed[0]:
-            match_type = MatchType.RELAXED
+        match_type = (
+            MatchType.RELAXED
+            if any("availability" in r for r in relaxed)
+            else (MatchType.FALLBACK if relaxed else MatchType.EXACT)
+        )
 
         return RouteDecision(
             model=winner.name,
@@ -272,48 +276,44 @@ class ModelRouter:
         candidates: List[ModelConfig],
         ctx: _RoutingContext,
     ) -> Tuple[List[ModelConfig], List[str]]:
-        """Progressively relax constraints until we find at least one candidate."""
+        """Progressively relax constraints until we find at least one candidate.
+
+        Walks RELAXATION_STEPS in order. Task-type support is never relaxed —
+        if no enabled model supports the task at all, we fail loudly.
+        """
         relaxed: List[str] = []
-        all_configs = [c for c in self._configs if c.enabled]
+        pool = [c for c in self._configs if c.enabled and c.supports_task(ctx.task_type)]
 
-        # Start from scratch with just task_type
-        candidates = [c for c in all_configs if c.supports_task(ctx.task_type)]
+        if not pool:
+            # Some models register empty task_types meaning "supports all";
+            # only consult that as a last resort.
+            pool = [c for c in self._configs if c.enabled and not c.task_types]
 
-        # Relax plan_tier
-        if ctx.plan_tier and not candidates:
-            max_tier = ctx.plan_tier
-            for upgrade in [PlanTier.STANDARD, PlanTier.PREMIUM]:
-                tier_order = {
-                    PlanTier.FREE: 0, PlanTier.STANDARD: 1, PlanTier.PREMIUM: 2
-                }
-                if tier_order.get(upgrade, 0) > tier_order.get(max_tier, 1):
-                    candidates = [
-                        c for c in all_configs
-                        if c.supports_task(ctx.task_type) and c.within_tier(upgrade)
-                    ]
-                    if candidates:
-                        relaxed.append(
-                            f"plan_tier ({ctx.plan_tier.value} → {upgrade.value})"
-                        )
-                        break
+        if not pool:
+            return [], relaxed
 
-        # Relax output_type
-        if ctx.output_type and not candidates:
-            candidates = [c for c in all_configs if c.supports_task(ctx.task_type)]
-            if candidates:
-                relaxed.append(
-                    f"output_type ({ctx.output_type.value} → any)"
-                )
+        # 1. plan_tier — upgrade step by step until a tier yields candidates
+        if ctx.plan_tier:
+            tiers = sorted(
+                (t for t in PLAN_TIER_RANK if PLAN_TIER_RANK[t] > PLAN_TIER_RANK[ctx.plan_tier]),
+                key=lambda t: PLAN_TIER_RANK[t],
+            )
+            for upgrade in tiers:
+                upgraded = [c for c in pool if c.within_tier(upgrade)]
+                if upgraded:
+                    relaxed.append(
+                        f"plan_tier ({ctx.plan_tier.value} → {upgrade.value})"
+                    )
+                    return upgraded, relaxed
 
-        # Last resort: any model supporting the task
-        if not candidates:
-            candidates = [
-                c for c in all_configs
-                if c.supports_task(ctx.task_type)
-                or (not c.task_types)  # models with no task_types = all
-            ]
+        # 2. output_type — any output
+        if ctx.output_type:
+            relaxed.append(f"output_type ({ctx.output_type.value} → any)")
+            return pool, relaxed
 
-        return candidates, relaxed
+        # 3+4. cost_class / preferred_provider — already re-sorted downstream,
+        # nothing to drop here; return whatever the task pool holds.
+        return pool, relaxed
 
     # ── Sorting ───────────────────────────────────────────────────────
 
@@ -452,7 +452,7 @@ class ModelRouter:
             # Build tier-based fallback chain
             tiers_present = sorted(
                 set(c.plan_tier for c in eligible),
-                key=lambda t: {"free": 0, "standard": 1, "premium": 2}.get(t.value, 1),
+                key=lambda t: PLAN_TIER_RANK.get(t, 1),
             )
 
             row = {

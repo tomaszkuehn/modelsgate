@@ -53,31 +53,6 @@
     </div>
 </div>
 
-{% if mem and mem.process %}
-<div class="stats-grid" style="margin-top:16px;">
-    <div class="stat-card">
-        <div class="stat-value" style="color:{% if mem.system.used_percent > 80 %}var(--danger){% elif mem.system.used_percent > 60 %}var(--warning){% else %}var(--success){% endif %};">
-            {{ mem.process.rss_mb }} MB
-        </div>
-        <div class="stat-label">Process RSS</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ mem.process.vms_mb }} MB</div>
-        <div class="stat-label">Process Virtual</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value" style="color:{% if mem.system.used_percent > 80 %}var(--danger){% elif mem.system.used_percent > 60 %}var(--warning){% else %}var(--success){% endif %};">
-            {{ mem.system.used_percent }}%
-        </div>
-        <div class="stat-label">System RAM ({{ mem.system.available_gb }} GB free)</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value">{{ mem.python_objects | length }}</div>
-        <div class="stat-label">Python Object Types</div>
-    </div>
-</div>
-{% endif %}
-
 {% if client_stats %}
 <div class="card">
     <div class="card-header"><h2>Usage by Client</h2></div>
@@ -100,7 +75,7 @@
 {% endif %}
 
 <div class="card">
-    <div class="card-header"><h2>Requests Per Day (Last 7 Days)</h2></div>
+    <div class="card-header"><h2>Requests Per Day (Last 30 Days)</h2></div>
     <div class="chart-container">
         <canvas id="dailyChart" height="80"></canvas>
     </div>
@@ -186,6 +161,25 @@
     <div class="empty-state">No requests recorded yet.</div>
     {% endif %}
 </div>
+
+{% if failures %}
+<div class="card">
+    <div class="card-header"><h2>Recent Routing Failures</h2></div>
+    <table style="font-size:0.78rem;">
+        <thead><tr><th>Time</th><th>Request ID</th><th>Task</th><th>Error</th></tr></thead>
+        <tbody>
+            {% for f in failures %}
+            <tr>
+                <td>{{ f.created_at[:19] if f.created_at else '—' }}</td>
+                <td style="font-family:monospace;font-size:0.72rem;">{{ f.request_id }}</td>
+                <td>{{ f.task_type or '—' }}</td>
+                <td style="color:var(--danger);font-size:0.75rem;max-width:350px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ f.error_message }}">{{ f.error_message }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}

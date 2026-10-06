@@ -181,8 +181,8 @@ class ModelConfig:
 
     def within_tier(self, max_tier: PlanTier) -> bool:
         """Check if this model is within the allowed tier."""
-        tier_order = {PlanTier.FREE: 0, PlanTier.STANDARD: 1, PlanTier.PREMIUM: 2}
-        return tier_order.get(self.plan_tier, 1) <= tier_order.get(max_tier, 2)
+        from app.api.schemas import PLAN_TIER_RANK
+        return PLAN_TIER_RANK.get(self.plan_tier, 1) <= PLAN_TIER_RANK.get(max_tier, 2)
 
     def validate_capabilities(self) -> List[str]:
         """Validate capability consistency. Returns list of warnings (empty = valid)."""

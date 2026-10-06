@@ -37,6 +37,11 @@
             <strong style="font-size:1rem;">{{ row.task_label }}</strong>
             <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:0.8rem;">{{ row.task_type }}</code>
             <span class="badge badge-success">{{ row.total_eligible }} eligible</span>
+            {% set usage = usage_map.get(row.task_type) if usage_map else None %}
+            {% if usage %}
+            <span style="font-size:0.82rem;color:var(--text-muted);">{{ usage.count }} requests</span>
+            <span style="font-size:0.82rem;color:var(--text-muted);">{{ usage.total_tokens | int }} tokens</span>
+            {% endif %}
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
             {% for c in row.candidates %}

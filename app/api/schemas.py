@@ -58,6 +58,13 @@ class CostClass(str, Enum):
     BEST     = "best"      # Highest capability (ignores cost)
 
 
+PLAN_TIER_RANK: dict[PlanTier, int] = {
+    PlanTier.FREE: 0,
+    PlanTier.STANDARD: 1,
+    PlanTier.PREMIUM: 2,
+}
+
+
 # ── Content blocks ──────────────────────────────────────────────────────
 
 class TextContent(BaseModel):

@@ -10,23 +10,39 @@
 </head>
 <body>
     {% if request.session.get("admin_username") %}
+    {% set _path = request.url.path %}
     <nav>
         <a href="/admin/dashboard" class="brand">AI Backend</a>
-        <a href="/admin/dashboard" class="{% if request.url.path == '/admin/dashboard' %}active{% endif %}">Dashboard</a>
-        <a href="/admin/routing" class="{% if request.url.path == '/admin/routing' %}active{% endif %}">Routing</a>
-        <a href="/admin/tasks" class="{% if request.url.path == '/admin/tasks' %}active{% endif %}">Tasks</a>
-        <a href="/admin/capabilities" class="{% if request.url.path == '/admin/capabilities' %}active{% endif %}">Capabilities</a>
-        <a href="/admin/usage" class="{% if request.url.path == '/admin/usage' %}active{% endif %}">Usage</a>
-        <a href="/admin/models" class="{% if request.url.path == '/admin/models' %}active{% endif %}">Models</a>
-        <a href="/admin/clients" class="{% if request.url.path == '/admin/clients' %}active{% endif %}">Clients</a>
-        <a href="/admin/groups" class="{% if request.url.path == '/admin/groups' %}active{% endif %}">Groups</a>
-        <a href="/admin/group-routing" class="{% if request.url.path == '/admin/group-routing' %}active{% endif %}">Group Routing</a>
-        <a href="/admin/policies" class="{% if request.url.path == '/admin/policies' %}active{% endif %}">Policies</a>
-        <a href="/admin/playground" class="{% if request.url.path == '/admin/playground' %}active{% endif %}">Playground</a>
-        <a href="/admin/logs" class="{% if request.url.path == '/admin/logs' %}active{% endif %}">Logs</a>
-        <a href="/admin/settings" class="{% if request.url.path == '/admin/settings' %}active{% endif %}">Settings</a>
+        <div class="nav-group">
+            <span class="nav-group-label">Metrics</span>
+            <div class="nav-group-items">
+                <a href="/admin/dashboard" class="{% if _path == '/admin/dashboard' %}active{% endif %}">Dashboard</a>
+                <a href="/admin/logs" class="{% if _path == '/admin/logs' %}active{% endif %}">Logs</a>
+            </div>
+        </div>
+        <div class="nav-group">
+            <span class="nav-group-label">Config</span>
+            <div class="nav-group-items">
+                <a href="/admin/models" class="{% if _path == '/admin/models' %}active{% endif %}">Models</a>
+                <a href="/admin/routing" class="{% if _path == '/admin/routing' %}active{% endif %}">Routing</a>
+                <a href="/admin/group-routing" class="{% if _path == '/admin/group-routing' %}active{% endif %}">Group Routing</a>
+            </div>
+        </div>
+        <div class="nav-group">
+            <span class="nav-group-label">Access</span>
+            <div class="nav-group-items">
+                <a href="/admin/clients" class="{% if _path == '/admin/clients' %}active{% endif %}">Clients</a>
+            </div>
+        </div>
+        <div class="nav-group">
+            <span class="nav-group-label">Tools</span>
+            <div class="nav-group-items">
+                <a href="/admin/playground" class="{% if _path == '/admin/playground' %}active{% endif %}">Playground</a>
+                <a href="/admin/settings" class="{% if _path == '/admin/settings' %}active{% endif %}">Settings</a>
+            </div>
+        </div>
         <span class="spacer"></span>
-        <span style="color: var(--text-muted); font-size: 0.85rem;">{{ request.session.get("admin_username") }}</span>
+        <span class="nav-user">{{ request.session.get("admin_username") }}</span>
         <a href="/admin/logout" class="logout">Logout</a>
     </nav>
     {% endif %}

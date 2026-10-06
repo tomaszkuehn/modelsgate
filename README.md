@@ -110,19 +110,16 @@ Per-model API keys can be set in Admin → Models (overrides env var). All provi
 
 | Page | Purpose |
 |------|---------|
-| **Dashboard** | Stats, daily charts, filter by task type & conversation ID |
-| **Routing** | Task→model priority order, fallback chains, relaxation steps |
-| **Tasks** | Per-task eligible models with priority & usage |
-| **Capabilities** | Full capability matrix + task support grid |
-| **Usage** | Task breakdowns, daily trends, token distribution |
-| **Models** | Full CRUD — add/edit/delete models with capabilities, API keys, tier & cost |
-| **Clients** | Generate client IDs, assign to groups, block/unblock, view token usage |
-| **Groups** | Create groups with unique keys, view client counts |
-| **Group Routing** | Assign specific models to tasks per group — overrides default routing |
-| **Policies** | Routing policies with task/provider/token/capability restrictions |
-| **Playground** | Build & send API requests, preview original→encrypted→response |
+| **Dashboard** | Stats, 30-day chart, per-client/task/model breakdowns, routing failures, filter by task type & conversation ID |
 | **Logs** | Request trace log — original, converted, response. FIFO-capped at 1000 entries |
-| **Settings** | API key status (all 7 providers), key rotation, password change |
+| **Models** | Full CRUD — add/edit/delete models with capabilities, API keys, tier & cost |
+| **Routing** | Task→model priority order with per-task usage, fallback chains, relaxation steps, failures |
+| **Group Routing** | Assign specific models to tasks per group — overrides default routing |
+| **Clients** | Generate client IDs, assign to groups, block/unblock, token usage + group management with per-group routing links |
+| **Playground** | Build & send API requests, preview original→encrypted→response |
+| **Settings** | System health (RAM), API key status (all 7 providers), key rotation, password change |
+
+Auth behavior: unauthenticated page access redirects to `/admin/login` (POST endpoints return `401`); pages are sent with `Cache-Control: no-store` so back/forward navigation never shows logged-in content after logout; an authenticated user opening `/admin/login` is redirected to the dashboard.
 
 ---
 
@@ -202,9 +199,11 @@ backend-AI/
 │   ├── logs/
 │   │   └── tracer.py                # Request trace logging with FIFO cap
 │   ├── admin/
-│   │   ├── auth.py, routes.py       # Session auth, 14 admin routes
+│   │   ├── auth.py                   # Session auth, brute-force protection, redirect-on-unauthenticated
+│   │   ├── routes_pkg/               # Admin routes split by domain (auth, dashboard, models,
+│   │   │                             #   settings, analytics, access, grouprouting, playground)
 │   │   ├── static/style.css         # Dark-themed UI
-│   │   └── templates/               # 14 Jinja2 templates
+│   │   └── templates/               # 11 Jinja2 templates (7 pages + login + fragments)
 │   └── stats/
 │       ├── models.py                # 10 ORM models (UsageLog, Client, Group, Policy, Job, etc.)
 │       └── tracker.py               # Usage recording + aggregation queries

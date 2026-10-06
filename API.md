@@ -994,25 +994,34 @@ Clients using the old `model`-only format continue to work:
 
 Web UI at `/admin/`. Default credentials: `admin` / `admin123`.
 
+Pages: Dashboard, Logs, Models, Routing, Group Routing, Clients, Playground, Settings.
+Unauthenticated page access redirects to `/admin/login` (POST endpoints return `401`).
+Pages are served with `Cache-Control: no-store` so back/forward navigation never
+shows stale, logged-in content after logout. An authenticated user visiting
+`/admin/login` is redirected to the dashboard.
+
 | Method | Path | Auth | Description |
 |--------|------|:----:|-------------|
-| `GET` | `/admin/login` | — | Login form |
+| `GET` | `/admin/login` | — | Login form (redirects to dashboard if already logged in) |
 | `POST` | `/admin/login` | — | Authenticate |
-| `GET` | `/admin/dashboard` | Session | Usage stats, charts, filter by task_type & conversation_id |
-| `GET` | `/admin/routing` | Session | Task→model priority order, fallback chains, constraint relaxation, routing failures |
-| `GET` | `/admin/tasks` | Session | Per-task model mappings with priority/fallback, usage per task |
-| `GET` | `/admin/capabilities` | Session | Full model capability matrix and task support grid |
-| `GET` | `/admin/usage` | Session | Task usage breakdowns, daily charts, token distribution, error rates |
+| `GET` | `/admin/logout` | Session | Clear session, redirect to login |
+| `GET` | `/admin/dashboard` | Session | Usage stats, 30-day chart, per-client/per-task/per-model breakdowns, routing failures, filter by task_type & conversation_id |
+| `GET` | `/admin/routing` | Session | Task→model priority order with per-task usage, fallback chains, constraint relaxation, routing failures |
+| `GET` | `/admin/logs` | Session | Request trace log: original → provider format → response (FIFO, 1000 entries) |
 | `GET` | `/admin/models` | Session | Model config with task types |
-| `GET` | `/admin/clients` | Session | Register API clients with keys, assign groups/policies |
+| `POST` | `/admin/models/create` | Session | Create a model |
+| `POST` | `/admin/models/{name}/update` | Session | Update model (renames propagate to group routing & logs) |
+| `POST` | `/admin/models/{name}/delete` | Session | Delete a model |
+| `GET` | `/admin/models/{name}/usage` | Session | Model usage details |
+| `GET` | `/admin/group-routing` | Session | Per-group task→model assignment editor (`?group_id=N`) |
+| `POST` | `/admin/group-routing/save` | Session | Save group assignments |
+| `GET` | `/admin/clients` | Session | Clients (group reassignment, block/unblock) + group list with per-group routing links |
 | `POST` | `/admin/clients/create` | Session | Create a new client |
 | `POST` | `/admin/clients/{id}/toggle` | Session | Activate/deactivate a client |
-| `GET` | `/admin/groups` | Session | Manage client groups with policy assignment |
+| `POST` | `/admin/clients/{id}/group` | Session | Reassign client to a group |
 | `POST` | `/admin/groups/create` | Session | Create a new client group |
-| `GET` | `/admin/policies` | Session | View routing policies with all restrictions |
-| `POST` | `/admin/policies/create` | Session | Create a new policy with defaults |
-| `POST` | `/admin/policies/{id}/toggle` | Session | Activate/deactivate a policy |
-| `GET` | `/admin/settings` | Session | Key rotation, password change |
+| `GET` | `/admin/playground` | Session | Build/send encrypted requests, see decrypted responses |
+| `GET` | `/admin/settings` | Session | System health (RAM), key rotation, password change |
 | `POST` | `/admin/settings/rotate-keys` | Session | Rotate encryption keys |
 | `POST` | `/admin/settings/change-password` | Session | Change admin password |
 

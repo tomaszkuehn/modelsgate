@@ -16,6 +16,29 @@
 <div class="alert alert-error">{{ error }}</div>
 {% endif %}
 
+<!-- System Health -->
+{% if mem.process and mem.system %}
+<div class="card">
+    <div class="card-header"><h2>System Health</h2></div>
+    <div class="stats-grid" style="margin-bottom:0;">
+        <div class="stat-card">
+            <div class="stat-value" style="font-size:1.4rem;">{{ mem.process.rss_mb }} MB</div>
+            <div class="stat-label">Process RSS</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="font-size:1.4rem;">{{ mem.process.vms_mb }} MB</div>
+            <div class="stat-label">Process Virtual</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" style="font-size:1.4rem; color:{% if mem.system.used_percent > 80 %}var(--danger){% elif mem.system.used_percent > 60 %}var(--warning){% else %}var(--success){% endif %};">
+                {{ mem.system.used_percent }}%
+            </div>
+            <div class="stat-label">System RAM ({{ mem.system.available_gb }} GB free)</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Encryption Keys -->
 <div class="card">
     <div class="card-header">

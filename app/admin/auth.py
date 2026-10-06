@@ -1,5 +1,6 @@
 """Admin panel authentication — session-based with bcrypt passwords."""
 
+import logging
 import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -162,10 +163,28 @@ async def authenticate_user(session: AsyncSession, username: str, password: str)
     return None
 
 
+_logger = logging.getLogger(__name__)
+
+
+class AdminNotAuthenticated(Exception):
+    """Raised when an admin page is requested without a valid session."""
+
+
+def _get_admin_redirect(request: Request) -> "RedirectResponse":
+    from fastapi.responses import RedirectResponse
+    login_url = "/admin/login"
+    if request.method in ("GET", "HEAD") and request.url.path != login_url:
+        return RedirectResponse(url=login_url, status_code=303)
+    return None  # type: ignore[return-value]
+
+
 async def get_current_admin(request: Request) -> AdminUser:
     """Dependency that requires a valid admin session."""
     username = request.session.get("admin_username")
     if not username:
+        redirect = _get_admin_redirect(request)
+        if redirect is not None:
+            raise AdminNotAuthenticated(redirect)
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     async with async_session() as session:
@@ -175,6 +194,10 @@ async def get_current_admin(request: Request) -> AdminUser:
         user = result.scalar_one_or_none()
 
         if user is None:
+            redirect = _get_admin_redirect(request)
+            if redirect is not None:
+                request.session.clear()
+                raise AdminNotAuthenticated(redirect)
             raise HTTPException(status_code=401, detail="Invalid session")
 
         return user

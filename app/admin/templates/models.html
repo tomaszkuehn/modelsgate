@@ -1,18 +1,20 @@
 {% extends "base.html" %}
+{% from "_forms.html" import select, text, capability_checkboxes, capability_badges %}
 {% block title %}Models — AI Backend Admin{% endblock %}
 
 {% block content %}
 <h1>Model Configuration</h1>
 
-{% if request.query_params.get("created") %}
-<div class="alert alert-success">Model created. Registry reloaded.</div>
+{% set alerts = [
+    ('created', 'Model created. Registry reloaded.'),
+    ('updated', 'Model updated. Registry reloaded.'),
+    ('deleted', 'Model deleted.'),
+] %}
+{% for param, message in alerts %}
+{% if request.query_params.get(param) %}
+<div class="alert alert-success">{{ message }}</div>
 {% endif %}
-{% if request.query_params.get("updated") %}
-<div class="alert alert-success">Model updated. Registry reloaded.</div>
-{% endif %}
-{% if request.query_params.get("deleted") %}
-<div class="alert alert-success">Model deleted.</div>
-{% endif %}
+{% endfor %}
 {% if request.query_params.get("error") %}
 <div class="alert alert-error">{{ request.query_params.get("error") }}</div>
 {% endif %}
@@ -20,32 +22,32 @@
 <div class="alert alert-error">{{ error }}</div>
 {% endif %}
 
+{% set provider_options = [
+    ('openai', 'openai'), ('anthropic', 'anthropic'), ('gemini', 'gemini'),
+    ('openrouter', 'openrouter'), ('alibaba', 'alibaba'),
+    ('deepseek', 'deepseek'), ('ollama', 'ollama'),
+] %}
+{% set tier_options = [('free', 'free'), ('standard', 'standard'), ('premium', 'premium')] %}
+{% set cost_options = [('cheapest', 'cheapest'), ('balanced', 'balanced'), ('best', 'best')] %}
+
 <!-- Add form -->
 <div class="card">
     <div class="card-header"><h2>Add Model</h2></div>
-    <form method="post" action="/admin/models/create" style="font-size:0.82rem;">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:12px;">
-            <div><label>Name *</label><input type="text" name="name" required placeholder="my-model" style="width:100%;padding:6px 8px;font-size:0.82rem;"></div>
-            <div><label>Provider *</label><select name="provider" style="width:100%;padding:6px 8px;font-size:0.82rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);"><option>openai</option><option>anthropic</option><option>gemini</option><option>openrouter</option><option>alibaba</option><option>deepseek</option><option>ollama</option></select></div>
-            <div><label>Model ID *</label><input type="text" name="model_id" required placeholder="gpt-4o" style="width:100%;padding:6px 8px;font-size:0.82rem;"></div>
-            <div><label>Description</label><input type="text" name="description" placeholder="Optional" style="width:100%;padding:6px 8px;font-size:0.82rem;"></div>
-            <div><label>API Key (opt.)</label><input type="text" name="api_key" placeholder="Overrides env var" style="width:100%;padding:6px 8px;font-size:0.82rem;"></div>
-            <div><label>Base URL (opt.)</label><input type="text" name="base_url" placeholder="Provider default" style="width:100%;padding:6px 8px;font-size:0.82rem;"></div>
-            <div><label>Plan Tier</label><select name="plan_tier" style="width:100%;padding:6px 8px;font-size:0.82rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);"><option>free</option><option selected>standard</option><option>premium</option></select></div>
-            <div><label>Cost Class</label><select name="cost_class" style="width:100%;padding:6px 8px;font-size:0.82rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);"><option>cheapest</option><option selected>balanced</option><option>best</option></select></div>
-            <div><label>Cost Weight</label><input type="number" name="cost_weight" value="1.0" step="0.1" min="0" style="width:100%;padding:6px 8px;font-size:0.82rem;"></div>
+    <form method="post" action="/admin/models/create">
+        <div class="form-grid">
+            {{ text('name', 'Name', required=true, placeholder='my-model') }}
+            {{ select('provider', provider_options, label='Provider', required=true) }}
+            {{ text('model_id', 'Model ID', required=true, placeholder='gpt-4o') }}
+            {{ text('description', 'Description', placeholder='Optional') }}
+            {{ text('api_key', 'API Key (opt.)', placeholder='Overrides env var') }}
+            {{ text('base_url', 'Base URL (opt.)', placeholder='Provider default') }}
+            {{ select('plan_tier', tier_options, selected='standard', label='Plan Tier') }}
+            {{ select('cost_class', cost_options, selected='balanced', label='Cost Class') }}
+            {{ text('cost_weight', 'Cost Weight', value='1.0', type='number', step='0.1', min='0') }}
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
-            <label style="font-size:0.78rem;"><input type="checkbox" name="text_input" checked> Text In</label>
-            <label style="font-size:0.78rem;"><input type="checkbox" name="image_input"> Img In</label>
-            <label style="font-size:0.78rem;"><input type="checkbox" name="multi_image_input"> Multi Img</label>
-            <label style="font-size:0.78rem;"><input type="checkbox" name="text_output" checked> Text Out</label>
-            <label style="font-size:0.78rem;"><input type="checkbox" name="image_output"> Img Out</label>
-            <label style="font-size:0.78rem;"><input type="checkbox" name="image_edit"> Img Edit</label>
-            <label style="font-size:0.78rem;"><input type="checkbox" name="streaming"> Stream</label>
-            <label style="font-size:0.78rem;">Max Img <input type="number" name="max_images" value="0" min="0" style="width:50px;padding:2px 4px;font-size:0.78rem;"></label>
-            <label style="font-size:0.78rem;">Max MB <input type="number" name="max_image_size_mb" value="0" step="0.1" min="0" style="width:60px;padding:2px 4px;font-size:0.78rem;"></label>
-        </div>
+        {{ capability_checkboxes() }}
+        {{ text('max_images', placeholder='0', type='number', min='0', width='80px') }}
+        {{ text('max_image_size_mb', placeholder='0', type='number', step='0.1', min='0', width='100px') }}
         <button type="submit" class="btn btn-primary btn-sm">Add Model</button>
     </form>
 </div>
@@ -54,84 +56,63 @@
 <div class="card">
     <div class="card-header">
         <h2>Registered Models ({{ models | length }})</h2>
-        <span style="color:var(--text-muted);font-size:0.78rem;">Config: {{ config_path }}</span>
+        <span class="form-grid-note">Config: {{ config_path }}</span>
     </div>
 
     {% if models %}
     {% for name, config in models.items() %}
     {% set usage = usage_map.get(name, {}) %}
     {% set db_row = db_rows.get(name) %}
-    <div style="margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:12px;{% if not config.enabled %}opacity:0.6;{% endif %}">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+    <div class="model-row {% if not config.enabled %}model-disabled{% endif %}">
+        <div class="model-row-header">
             <strong>{{ name }}</strong>
-            <span class="badge" style="font-size:0.72rem;background:var(--surface2);">{{ config.provider }}</span>
-            <code style="font-size:0.75rem;background:var(--surface2);padding:1px 4px;border-radius:3px;">{{ config.model_id }}</code>
+            <span class="badge" style="background:var(--surface2);">{{ config.provider }}</span>
+            <code class="model-id">{{ config.model_id }}</code>
             <span class="badge {% if config.enabled %}badge-enabled{% else %}badge-disabled{% endif %}">{{ 'enabled' if config.enabled else 'disabled' }}</span>
             {% if usage.count %}
-            <span style="font-size:0.75rem;color:var(--text-muted);">{{ usage.count }} requests, {{ usage.total_tokens | int }} tokens</span>
+            <span class="usage-note">{{ usage.count }} requests, {{ usage.total_tokens | int }} tokens</span>
             {% endif %}
         </div>
 
-        <!-- Capability badges -->
-        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
-            {% set caps = [
-                ('TxtIn', config.supports_text_input, '#4ade80'),
-                ('ImgIn', config.supports_image_input, '#60a5fa'),
-                ('Multi', config.supports_multi_image_input, '#c084fc'),
-                ('TxtOut', config.supports_text_output, '#4ade80'),
-                ('ImgOut', config.supports_image_output, '#fbbf24'),
-                ('Edit', config.supports_image_edit, '#f97316'),
-                ('Stream', config.supports_streaming, '#34d399'),
-            ] %}
-            {% for label, val, color in caps %}
-            <span style="font-size:0.68rem;padding:1px 5px;border-radius:3px;background:{% if val %}{{ color }}22{% else %}var(--surface2){% endif %};color:{% if val %}{{ color }}{% else %}var(--text-muted){% endif %};border:1px solid {% if val %}{{ color }}44{% else %}var(--border){% endif %};">
-                {{ label }}{{ ' ✓' if val else '' }}
-            </span>
-            {% endfor %}
-        </div>
+        {{ capability_badges(config) }}
 
         <!-- Inline edit form (collapsed by default) -->
-        <details style="font-size:0.78rem;">
-            <summary style="cursor:pointer;color:var(--primary);">Edit</summary>
-            <form method="post" action="/admin/models/{{ name }}/update" style="margin-top:8px;">
+        <details class="model-edit">
+            <summary>Edit</summary>
+            <form method="post" action="/admin/models/{{ name }}/update">
                 <input type="hidden" name="original_name" value="{{ name }}">
-                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin-bottom:8px;">
-                    <div><label style="font-size:0.72rem;">Name *</label><input type="text" name="name" value="{{ name }}" required style="width:100%;padding:4px 6px;font-size:0.75rem;"></div>
-                    <div><label style="font-size:0.72rem;">Provider</label><select name="provider" style="width:100%;padding:4px 6px;font-size:0.75rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);"><option {% if config.provider=='openai' %}selected{% endif %}>openai</option><option {% if config.provider=='anthropic' %}selected{% endif %}>anthropic</option><option {% if config.provider=='gemini' %}selected{% endif %}>gemini</option><option {% if config.provider=='openrouter' %}selected{% endif %}>openrouter</option><option {% if config.provider=='alibaba' %}selected{% endif %}>alibaba</option><option {% if config.provider=='deepseek' %}selected{% endif %}>deepseek</option><option {% if config.provider=='ollama' %}selected{% endif %}>ollama</option></select></div>
-                    <div><label style="font-size:0.72rem;">Model ID</label><input type="text" name="model_id" value="{{ config.model_id }}" style="width:100%;padding:4px 6px;font-size:0.75rem;"></div>
-                    <div><label style="font-size:0.72rem;">Tier</label><select name="plan_tier" style="width:100%;padding:4px 6px;font-size:0.75rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);"><option value="free" {% if config.plan_tier.value=='free' %}selected{% endif %}>free</option><option value="standard" {% if config.plan_tier.value=='standard' %}selected{% endif %}>standard</option><option value="premium" {% if config.plan_tier.value=='premium' %}selected{% endif %}>premium</option></select></div>
-                    <div><label style="font-size:0.72rem;">Cost</label><select name="cost_class" style="width:100%;padding:4px 6px;font-size:0.75rem;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);"><option value="cheapest" {% if config.cost_class.value=='cheapest' %}selected{% endif %}>cheapest</option><option value="balanced" {% if config.cost_class.value=='balanced' %}selected{% endif %}>balanced</option><option value="best" {% if config.cost_class.value=='best' %}selected{% endif %}>best</option></select></div>
-                    <div><label style="font-size:0.72rem;">Weight</label><input type="number" name="cost_weight" value="{{ config.cost_weight }}" step="0.1" style="width:100%;padding:4px 6px;font-size:0.75rem;"></div>
-                    <div><label style="font-size:0.72rem;">Description</label><input type="text" name="description" value="{{ config.description or '' }}" style="width:100%;padding:4px 6px;font-size:0.75rem;"></div>
-                    <div><label style="font-size:0.72rem;">API Key</label><input type="text" name="api_key" value="{{ db_row.api_key or '' if db_row else '' }}" placeholder="Overrides env var" style="width:100%;padding:4px 6px;font-size:0.75rem;"></div>
-                    <div><label style="font-size:0.72rem;">Base URL</label><input type="text" name="base_url" value="{{ db_row.base_url or '' if db_row else '' }}" placeholder="Provider default" style="width:100%;padding:4px 6px;font-size:0.75rem;"></div>
+                <div class="form-grid">
+                    {{ text('name', 'Name', value=name, required=true) }}
+                    {{ select('provider', provider_options, selected=config.provider, label='Provider') }}
+                    {{ text('model_id', 'Model ID', value=config.model_id) }}
+                    {{ select('plan_tier', tier_options, selected=config.plan_tier.value, label='Tier') }}
+                    {{ select('cost_class', cost_options, selected=config.cost_class.value, label='Cost') }}
+                    {{ text('cost_weight', 'Weight', value=config.cost_weight, type='number', step='0.1') }}
+                    {{ text('description', 'Description', value=config.description or '') }}
+                    {{ text('api_key', 'API Key', value=db_row.api_key or '' if db_row else '', placeholder='Overrides env var') }}
+                    {{ text('base_url', 'Base URL', value=db_row.base_url or '' if db_row else '', placeholder='Provider default') }}
                 </div>
-                <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
-                    <label style="font-size:0.72rem;"><input type="checkbox" name="text_input" {% if config.supports_text_input %}checked{% endif %}> Text In</label>
-                    <label style="font-size:0.72rem;"><input type="checkbox" name="image_input" {% if config.supports_image_input %}checked{% endif %}> Img In</label>
-                    <label style="font-size:0.72rem;"><input type="checkbox" name="multi_image_input" {% if config.supports_multi_image_input %}checked{% endif %}> Multi</label>
-                    <label style="font-size:0.72rem;"><input type="checkbox" name="text_output" {% if config.supports_text_output %}checked{% endif %}> Text Out</label>
-                    <label style="font-size:0.72rem;"><input type="checkbox" name="image_output" {% if config.supports_image_output %}checked{% endif %}> Img Out</label>
-                    <label style="font-size:0.72rem;"><input type="checkbox" name="image_edit" {% if config.supports_image_edit %}checked{% endif %}> Edit</label>
-                    <label style="font-size:0.72rem;"><input type="checkbox" name="streaming" {% if config.supports_streaming %}checked{% endif %}> Stream</label>
-                    <label style="font-size:0.72rem;">Max Img <input type="number" name="max_images" value="{{ config.max_images }}" style="width:45px;padding:2px 4px;font-size:0.72rem;"></label>
-                    <label style="font-size:0.72rem;">Max MB <input type="number" name="max_image_size_mb" value="{{ config.max_image_size_mb }}" step="0.1" style="width:55px;padding:2px 4px;font-size:0.72rem;"></label>
-                    <label style="font-size:0.72rem;"><input type="hidden" name="enabled" value="off"><input type="checkbox" name="enabled" value="on" {% if config.enabled %}checked{% endif %}> Enabled</label>
-                </div>
+                {{ capability_checkboxes(config) }}
+                {{ text('max_images', value=config.max_images, type='number', min='0', width='80px') }}
+                {{ text('max_image_size_mb', value=config.max_image_size_mb, type='number', step='0.1', width='100px') }}
+                <p>
+                    <input type="hidden" name="enabled" value="off">
+                    <input type="checkbox" name="enabled" value="on" {% if config.enabled %}checked{% endif %}> Enabled
+                </p>
                 <button type="submit" class="btn btn-primary btn-sm">Save</button>
             </form>
         </details>
 
         <!-- Delete button -->
-        <form method="post" action="/admin/models/{{ name }}/delete" style="margin-top:6px;display:inline-block;"
+        <form method="post" action="/admin/models/{{ name }}/delete" class="model-delete-form"
               onsubmit="{% if usage.count %}return confirm('WARNING: {{ name }} has {{ usage.count }} usage records and {{ usage.total_tokens | int }} tokens logged. Delete is blocked if usage exists. Disable it instead.');{% else %}return confirm('Delete {{ name }}? This cannot be undone.');{% endif %}">
-            <button type="submit" class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger);font-size:0.72rem;"
+            <button type="submit" class="btn btn-outline btn-sm btn-delete"
                     {% if usage.count %}disabled title="Cannot delete: model has usage history. Disable instead."{% endif %}>
                 Delete
             </button>
         </form>
         {% if usage.count %}
-        <span style="color:var(--warning);font-size:0.72rem;margin-left:8px;">⚠ {{ usage.count }} requests logged — delete blocked. Disable instead.</span>
+        <span class="usage-warning">⚠ {{ usage.count }} requests logged — delete blocked. Disable instead.</span>
         {% endif %}
     </div>
     {% endfor %}

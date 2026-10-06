@@ -48,62 +48,16 @@ class ModelRegistry:
 
     async def initialize(self):
         """Async initialization — load configs from database."""
-        await self._load_from_db_async()
+        await self.reload_from_db()
         if not self._configs:
             logger.warning("No models found in database. Add models via Admin → Models.")
-        logger.info(f"ModelRegistry initialized with {len(self._configs)} models")
-
-    async def _load_from_db_async(self) -> bool:
-        """Load configs from the model_configs table asynchronously."""
-        from app.database import async_session
-        from app.stats.models import ModelConfigRow
-        from sqlalchemy import select as _sel
-        import json as _json
-
-        async with async_session() as session:
-            result = await session.execute(_sel(ModelConfigRow).order_by(ModelConfigRow.name))
-            rows = result.scalars().all()
-
-        if not rows:
-            return False
-
-        self._configs.clear()
-        for row in rows:
-            try:
-                caps = _json.loads(row.capabilities_json) if row.capabilities_json else {}
-            except _json.JSONDecodeError:
-                caps = {}
-
-            config = ModelConfig(
-                name=row.name, provider=row.provider, model_id=row.model_id,
-                description=row.description, enabled=row.enabled,
-                api_key=row.api_key or "",
-                base_url=row.base_url,
-                supports_text_input=caps.get("text_input", True),
-                supports_image_input=caps.get("image_input", False),
-                supports_multi_image_input=caps.get("multi_image_input", False),
-                supports_text_output=caps.get("text_output", True),
-                supports_image_output=caps.get("image_output", False),
-                supports_image_edit=caps.get("image_edit", False),
-                supports_streaming=caps.get("streaming", False),
-                max_images=int(caps.get("max_images", 0)),
-                max_image_size_mb=float(caps.get("max_image_size_mb", 0.0)),
-                plan_tier=PlanTier(row.plan_tier) if row.plan_tier in ("free","standard","premium") else PlanTier.STANDARD,
-                cost_class=CostClass(row.cost_class) if row.cost_class in ("cheapest","balanced","best") else CostClass.BALANCED,
-                cost_weight=row.cost_weight,
-            )
-            config.task_types = config.infer_task_types_from_capabilities()
-            config.output_types = config.infer_output_types_from_capabilities()
-            self._configs[config.name] = config
-
-            # Log capability contradictions
-            for w in config.validate_capabilities():
-                logger.warning(w)
-
-        return True
 
     async def reload_from_db(self):
-        """Reload configs from DB asynchronously (called after admin CRUD changes)."""
+        """Load (or reload) configs from the model_configs table.
+
+        Called once at startup (initialize) and after admin CRUD changes.
+        Resets cached providers so they are rebuilt with fresh config.
+        """
         from app.database import async_session
         from app.stats.models import ModelConfigRow
         from sqlalchemy import select as _sel
@@ -118,8 +72,7 @@ class ModelRegistry:
         if not rows:
             return
 
-        self._configs.clear()
-        self._providers.clear()  # reset cached providers too
+        configs: Dict[str, ModelConfig] = {}
         for row in rows:
             try:
                 caps = _json.loads(row.capabilities_json) if row.capabilities_json else {}
@@ -146,12 +99,17 @@ class ModelRegistry:
             )
             config.task_types = config.infer_task_types_from_capabilities()
             config.output_types = config.infer_output_types_from_capabilities()
-            self._configs[config.name] = config
+            configs[config.name] = config
 
             for w in config.validate_capabilities():
                 logger.warning(w)
 
-        logger.info(f"Reloaded {len(self._configs)} models from database")
+        first_load = not self._configs
+        self._configs = configs
+        if not first_load:
+            self._providers.clear()  # reset cached providers after admin changes
+
+        logger.info(f"{'Loaded' if first_load else 'Reloaded'} {len(self._configs)} models from database")
 
     # ── Config accessors ────────────────────────────────────────────────
 
@@ -185,8 +143,6 @@ class ModelRegistry:
                 f"Unknown model '{model_name}'. "
                 f"Available: {list(self._configs.keys())}"
             )
-
-        logger.warning(f"Registry _get_provider: model_name={model_name}, config.api_key={'set' if config.api_key else 'empty'}")
 
         if model_name not in self._providers:
             provider = self._instantiate_provider(config)

@@ -62,4 +62,37 @@
     <div class="empty-state">No clients registered yet. Generate one above.</div>
     {% endif %}
 </div>
+
+<!-- Groups -->
+<div class="card">
+    <div class="card-header">
+        <h2>Groups ({{ groups | length }})</h2>
+        <a href="/admin/group-routing" class="btn btn-outline btn-sm">Configure Group Routing →</a>
+    </div>
+    <form method="post" action="/admin/groups/create" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;max-width:100%;margin-bottom:16px;">
+        <div class="form-group" style="margin-bottom:0;"><label>Group Key *</label><input type="text" name="group_key" required placeholder="team-alpha" style="width:160px;"></div>
+        <div class="form-group" style="margin-bottom:0;"><label>Name</label><input type="text" name="name" required placeholder="Engineering Team" style="width:180px;"></div>
+        <div class="form-group" style="margin-bottom:0;"><label>Description</label><input type="text" name="description" placeholder="Optional" style="width:220px;"></div>
+        <button type="submit" class="btn btn-primary btn-sm">Create Group</button>
+    </form>
+    {% if groups %}
+    <table style="font-size:0.82rem;">
+        <thead><tr><th>Group Key</th><th>Name</th><th>Description</th><th>Clients</th><th>Status</th><th>Routing</th></tr></thead>
+        <tbody>
+            {% for g in groups %}
+            <tr style="{% if not g.is_active %}opacity:0.5;{% endif %}">
+                <td><code style="font-size:0.8rem;">{{ g.group_key }}</code></td>
+                <td><strong>{{ g.name }}</strong></td>
+                <td>{{ g.description or '—' }}</td>
+                <td>{{ g.client_count }}</td>
+                <td><span class="badge {% if g.is_active %}badge-enabled{% else %}badge-disabled{% endif %}">{{ 'active' if g.is_active else 'inactive' }}</span></td>
+                <td><a href="/admin/group-routing?group_id={{ g.id }}" style="color:var(--primary);font-size:0.78rem;text-decoration:none;">Task→Model →</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No groups defined. Default group is seeded on startup.</div>
+    {% endif %}
+</div>
 {% endblock %}

@@ -30,7 +30,8 @@ access_logger = logging.getLogger("app.access")
 from app.config import settings
 from app.database import init_db
 from app.api.routes import router as api_router
-from app.admin.routes import router as admin_router
+from app.admin.routes_pkg import router as admin_router
+from app.admin.auth import AdminNotAuthenticated
 
 
 @asynccontextmanager
@@ -83,6 +84,30 @@ app = FastAPI(
 
 # Session middleware (required for admin panel auth)
 app.add_middleware(SessionMiddleware, secret_key=settings.session_secret, https_only=True, max_age=86400)
+
+
+@app.exception_handler(AdminNotAuthenticated)
+async def admin_auth_exception_handler(request: Request, exc: AdminNotAuthenticated):
+    """Unauthenticated admin page access → redirect to login (GET) or 401 (POST)."""
+    return exc.args[0]
+
+# ── No-cache for admin pages ─────────────────────────────────────────────
+# Without this, the browser serves cached admin pages from Back/Forward cache
+# even after logout — looks like the panel is still accessible without a session.
+@app.middleware("http")
+async def admin_no_cache_middleware(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if (
+        path.startswith("/admin")
+        and not path.startswith("/admin/static")
+        and request.session.get("admin_username")
+        and 200 <= response.status_code < 400
+    ):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
 
 # ── Access log: one line per request (mirrors nginx access log) ──────────
 # Ensures no client traffic is silent in the app log — covers /api/v1/public-key,
